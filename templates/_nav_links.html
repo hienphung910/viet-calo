@@ -1,0 +1,7 @@
+{# Thanh điều hướng chính (component NavLink trong Figma). Cần biến `view` = request.resolver_match.view_name #}
+<a href="{% url 'diary:home' %}" class="shrink-0 whitespace-nowrap rounded-full px-4 py-2 type-strong {% if view == 'diary:home' %}bg-brand-50 text-brand-700{% else %}text-ink-600 hover:bg-page hover:text-ink-900{% endif %}"{% if view == 'diary:home' %} aria-current="page"{% endif %}>Hôm nay</a>
+<a href="{% url 'diary:week' %}" class="shrink-0 whitespace-nowrap rounded-full px-4 py-2 type-strong {% if view == 'diary:week' %}bg-brand-50 text-brand-700{% else %}text-ink-600 hover:bg-page hover:text-ink-900{% endif %}"{% if view == 'diary:week' %} aria-current="page"{% endif %}>Tuần</a>
+{% if user.is_staff %}
+<a href="{% url 'recognition:stats' %}" class="shrink-0 whitespace-nowrap rounded-full px-4 py-2 type-strong {% if view == 'recognition:stats' %}bg-brand-50 text-brand-700{% else %}text-ink-600 hover:bg-page hover:text-ink-900{% endif %}"{% if view == 'recognition:stats' %} aria-current="page"{% endif %}>Thống kê</a>
+{% endif %}
+<a href="{% url 'accounts:profile' %}" class="shrink-0 whitespace-nowrap rounded-full px-4 py-2 type-strong {% if view == 'accounts:profile' %}bg-brand-50 text-brand-700{% else %}text-ink-600 hover:bg-page hover:text-ink-900{% endif %}"{% if view == 'accounts:profile' %} aria-current="page"{% endif %}>Hồ sơ & mục tiêu</a>

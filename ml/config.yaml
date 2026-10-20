@@ -1,0 +1,35 @@
+# Cấu hình train. Có thể ghi đè một số giá trị bằng tham số CLI, xem: python -m ml.train --help
+seed: 42
+data_dir: data/processed     # đầu ra của prepare_data.py (có train/ val/ test/)
+output_dir: models           # mỗi lần train tạo models/<version>/
+
+model:
+  # efficientnet_b0: cân bằng tốt giữa độ chính xác và tốc độ CPU (~5.3M tham số)
+  # mobilenetv3_large_100: nhanh hơn, kém chính xác hơn một chút
+  backbone: efficientnet_b0
+  pretrained: true           # dùng trọng số ImageNet (transfer learning)
+  drop_rate: 0.2             # dropout trước lớp phân loại
+
+image:
+  size: 224                  # kích thước ảnh đưa vào model
+
+augmentation:                # chỉ áp dụng cho tập train
+  crop_scale: [0.6, 1.0]     # RandomResizedCrop: cắt ngẫu nhiên 60-100% diện tích
+  hflip: true                # lật ngang
+  rotation: 15               # xoay ngẫu nhiên ±15 độ
+  color_jitter: 0.2          # thay đổi độ sáng/tương phản/bão hòa (ánh sáng quán ăn khác nhau)
+  random_erasing: 0.1        # xác suất che một vùng nhỏ (món bị che khuất một phần)
+
+train:
+  epochs: 25
+  batch_size: 32
+  lr: 0.001                  # learning rate cho lớp phân loại (head)
+  backbone_lr_mult: 0.1      # backbone học với lr nhỏ hơn 10 lần để không phá trọng số pretrained
+  weight_decay: 0.0001
+  freeze_backbone: true      # đóng băng backbone ở các epoch đầu
+  freeze_epochs: 3           # số epoch chỉ train head; >= epochs nghĩa là đóng băng suốt quá trình
+  label_smoothing: 0.1
+  class_weighting: false     # true: tăng trọng số loss cho lớp ít ảnh (khi dữ liệu mất cân bằng)
+  early_stopping_patience: 5 # dừng nếu val accuracy không tăng sau N epoch
+  amp: true                  # mixed precision trên GPU (nhanh hơn, tốn ít VRAM hơn)
+  num_workers: 4             # số tiến trình đọc ảnh; lỗi trên Windows thì đặt 0

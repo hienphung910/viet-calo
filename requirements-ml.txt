@@ -1,0 +1,17 @@
+# Thư viện ML (dùng cho cả train lẫn web khi dự đoán).
+#
+# BƯỚC 1 - cài PyTorch bản có CUDA TRƯỚC (nếu cài thẳng từ PyPI trên Windows sẽ ra bản chỉ chạy CPU).
+#   Lấy lệnh đúng cho máy tại https://pytorch.org/get-started/locally/  (chọn Pip + CUDA).
+#   Ví dụ đã chạy được với RTX 3060:
+#     pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+#   Máy không có GPU NVIDIA:
+#     pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+#
+# BƯỚC 2 - pip install -r requirements-ml.txt
+torch>=2.4
+torchvision>=0.19
+timm>=1.0            # thư viện model pretrained (EfficientNet, MobileNetV3...)
+scikit-learn>=1.5    # precision/recall/F1, confusion matrix
+matplotlib>=3.9      # vẽ confusion matrix, đường cong train
+PyYAML>=6.0          # đọc ml/config.yaml
+tqdm>=4.66           # thanh tiến trình

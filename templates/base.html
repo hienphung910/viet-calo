@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}VietCalo{% endblock %}</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍜</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  {# Tailwind bản chạy trong trình duyệt: không cần Node/npm. #}
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  {% comment %}
+    Design tokens lấy từ file Figma "VietCalo UI" (collection "VietCalo", text styles, effect styles).
+    Đổi màu/kiểu chữ ở đây là đổi cho toàn bộ web.
+  {% endcomment %}
+  <style type="text/tailwindcss">
+    @theme {
+      --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+      --color-brand-50: #ECFDF3; --color-brand-100: #D1FADF; --color-brand-500: #22B565;
+      --color-brand-600: #1F9D55; --color-brand-700: #17804A;
+      --color-accent-50: #FFF4EC; --color-accent-500: #F97316; --color-accent-600: #EA580C;
+      --color-protein: #0EA5E9; --color-carb: #FBBF24; --color-fat: #FB7185;
+      --color-ink-900: #1C1917; --color-ink-600: #57534E; --color-ink-400: #A8A29E;
+      --color-page: #FAF7F2; --color-muted: #F4F0E9; --color-line: #ECE7DF;
+      --color-danger: #E11D48;
+      --radius-card: 20px; --radius-panel: 28px;
+      --shadow-card: 0 1px 2px rgb(28 25 23 / 0.05), 0 8px 24px rgb(28 25 23 / 0.06);
+      --shadow-float: 0 12px 32px rgb(28 25 23 / 0.16);
+    }
+    /* Kiểu chữ (text styles trong Figma) */
+    @utility type-display { font-size: 40px; line-height: 48px; font-weight: 700; letter-spacing: -0.4px; }
+    @utility type-h1 { font-size: 28px; line-height: 36px; font-weight: 700; letter-spacing: -0.14px; }
+    @utility type-h2 { font-size: 20px; line-height: 28px; font-weight: 600; }
+    @utility type-h3 { font-size: 16px; line-height: 24px; font-weight: 600; }
+    @utility type-body { font-size: 15px; line-height: 22px; font-weight: 400; }
+    @utility type-strong { font-size: 15px; line-height: 22px; font-weight: 500; }
+    @utility type-small { font-size: 13px; line-height: 18px; font-weight: 400; }
+    @utility type-label { font-size: 13px; line-height: 18px; font-weight: 600; }
+    @utility type-caption { font-size: 12px; line-height: 16px; font-weight: 500; }
+    @utility type-num-xl { font-size: 44px; line-height: 48px; font-weight: 800; letter-spacing: -0.66px; }
+    @utility type-num-l { font-size: 24px; line-height: 30px; font-weight: 700; letter-spacing: -0.12px; }
+    /* Thẻ (card) và nút (component Button trong Figma: Primary / Accent / Secondary / Ghost) */
+    @utility card { background: #fff; border-radius: var(--radius-card); padding: 24px; box-shadow: var(--shadow-card); }
+    @utility btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 12px 20px; border-radius: 999px; font-size: 15px; line-height: 22px; font-weight: 500;
+      transition: background-color .15s, box-shadow .15s, opacity .15s; white-space: nowrap; cursor: pointer;
+      &:disabled { opacity: .5; cursor: not-allowed; }
+      &:focus-visible { outline: 3px solid var(--color-brand-100); outline-offset: 2px; }
+    }
+    @utility btn-primary { background: var(--color-brand-600); color: #fff; &:hover:not(:disabled) { background: var(--color-brand-700); } }
+    @utility btn-accent { background: var(--color-accent-500); color: #fff; &:hover:not(:disabled) { background: var(--color-accent-600); } }
+    @utility btn-secondary { background: #fff; color: var(--color-ink-900); box-shadow: inset 0 0 0 1px var(--color-line); &:hover:not(:disabled) { background: var(--color-page); } }
+    @utility btn-ghost { background: transparent; color: var(--color-brand-700); &:hover:not(:disabled) { background: var(--color-brand-50); } }
+    @utility field {
+      width: 100%; border-radius: 12px; border: 1px solid var(--color-line); background: #fff; padding: 10px 14px;
+      font-size: 15px; line-height: 22px; color: var(--color-ink-900);
+      &:focus { outline: none; border-color: var(--color-brand-600); box-shadow: 0 0 0 3px var(--color-brand-100); }
+    }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body class="min-h-screen bg-page font-sans text-ink-900 antialiased">
+  {% with view=request.resolver_match.view_name %}
+  <nav class="sticky top-0 z-20 border-b border-line bg-white">
+    <div class="mx-auto flex h-[72px] max-w-[1232px] items-center justify-between gap-4 px-4">
+      {# Logo: chữ V trên nền gradient xanh lá -> cam #}
+      <a href="{% url 'diary:home' %}" class="flex shrink-0 items-center gap-2.5" aria-label="VietCalo - trang chủ">
+        <span class="flex size-9 items-center justify-center rounded-xl bg-gradient-to-r from-brand-500 to-accent-500 text-[20px] leading-7 font-extrabold text-white">V</span>
+        <span class="type-h2"><span class="text-ink-900">Viet</span><span class="text-brand-600">Calo</span></span>
+      </a>
+
+      {% if user.is_authenticated %}
+        {# Thanh điều hướng: nằm trong header trên màn hình rộng #}
+        <div class="hidden items-center gap-1 lg:flex" aria-label="Điều hướng chính">
+          {% include "_nav_links.html" %}
+        </div>
+        <div class="flex items-center gap-3 sm:gap-4">
+          <a href="{% url 'recognition:upload' %}" class="btn btn-primary max-sm:px-3" aria-label="Quét món">
+            {% include "icons/camera.svg" with cls="size-5" %}<span class="max-sm:hidden">Quét món</span>
+          </a>
+          {# Menu tài khoản: <details> thuần HTML, không cần JavaScript #}
+          <details class="relative">
+            <summary class="flex size-10 cursor-pointer list-none items-center justify-center rounded-full bg-accent-50 type-label text-accent-500 [&::-webkit-details-marker]:hidden" aria-label="Menu tài khoản">
+              {{ user.first_name|default:user.email|slice:":1"|upper }}
+            </summary>
+            <div class="absolute right-0 mt-2 w-56 rounded-2xl bg-white p-2 shadow-float">
+              <p class="truncate px-3 py-2 type-small text-ink-400">{{ user.email }}</p>
+              {% if user.is_staff %}<a href="{% url 'admin:index' %}" class="block rounded-xl px-3 py-2 type-strong hover:bg-page">Quản trị</a>{% endif %}
+              <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
+                <button class="w-full rounded-xl px-3 py-2 text-left type-strong text-danger hover:bg-page">Đăng xuất</button>
+              </form>
+            </div>
+          </details>
+        </div>
+      {% else %}
+        <div class="flex items-center gap-2">
+          <a href="{% url 'accounts:login' %}" class="btn btn-ghost">Đăng nhập</a>
+          <a href="{% url 'accounts:register' %}" class="btn btn-primary">Đăng ký</a>
+        </div>
+      {% endif %}
+    </div>
+    {% if user.is_authenticated %}
+      {# Thanh điều hướng: hàng riêng dưới header trên màn hình hẹp (vuốt ngang nếu không đủ chỗ) #}
+      <div class="border-t border-line lg:hidden">
+        <div id="mobile-nav" class="mx-auto flex max-w-[1232px] gap-1 overflow-x-auto px-4 py-2 [scrollbar-width:none] max-sm:[&>a]:px-3" aria-label="Điều hướng chính">
+          {% include "_nav_links.html" %}
+        </div>
+      </div>
+      {# Màn hình hẹp: cuộn thanh để mục đang mở luôn nằm trong tầm nhìn #}
+      <script>document.querySelector("#mobile-nav [aria-current]")?.scrollIntoView({ block: "nearest", inline: "center" });</script>
+    {% endif %}
+  </nav>
+  {% endwith %}
+
+  <main class="mx-auto max-w-[1232px] px-4 pb-16 pt-9">
+    {% for message in messages %}
+      <div class="mb-5 flex items-center gap-3 rounded-2xl px-4 py-3 type-strong {% if message.tags == 'error' %}bg-red-50 text-danger{% else %}bg-brand-50 text-brand-700{% endif %}" role="status">
+        {% if message.tags != 'error' %}{% include "icons/check.svg" with cls="size-5 shrink-0" %}{% endif %}{{ message }}
+      </div>
+    {% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

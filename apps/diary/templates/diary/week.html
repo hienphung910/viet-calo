@@ -1,0 +1,178 @@
+{% extends "base.html" %}{% load vn %}
+{# Thiết kế: Figma "VietCalo UI" > 04 · Tuần (Desktop) #}
+{% block title %}Tuần {{ start|date:"d/m" }}–{{ end|date:"d/m" }} · VietCalo{% endblock %}
+{% block head %}
+  {# Chart.js qua CDN (không cần Node). #}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+{% block content %}
+{# ---------- Header ---------- #}
+<div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <p class="type-label text-brand-700">Tổng kết tuần</p>
+    <h1 class="type-h1">{{ start|date:"d/m" }} – {{ end|date:"d/m/Y" }}</h1>
+  </div>
+  <div class="flex items-center gap-1 rounded-full bg-white p-1.5 ring-1 ring-line">
+    <a href="?start={{ prev_week|date:'Y-m-d' }}" class="rounded-full p-1 text-ink-600 hover:bg-page" aria-label="Tuần trước">{% include "icons/chevron-left.svg" %}</a>
+    {% if is_current %}
+      <span class="px-3 type-strong">Tuần này</span>
+    {% else %}
+      <a href="{% url 'diary:week' %}" class="px-3 type-strong hover:text-brand-700" title="Về tuần này">Tuần {{ start|date:"d/m" }}</a>
+    {% endif %}
+    <a href="?start={{ next_week|date:'Y-m-d' }}" class="rounded-full p-1 text-ink-600 hover:bg-page" aria-label="Tuần sau">{% include "icons/chevron-right.svg" %}</a>
+  </div>
+</div>
+
+{# ---------- Thẻ số liệu (component StatCard) ---------- #}
+<div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-6">
+  {% with t=total.kcal|num %}
+  {% include "_stat_card.html" with label="Tổng tuần" value=t sub="kcal" %}
+  {% endwith %}
+  {% with a=avg_kcal|num %}
+  {% include "_stat_card.html" with label="Trung bình / ngày" value=a sub="kcal · "|add:days_logged_text %}
+  {% endwith %}
+  {% include "_stat_card.html" with label="Ngày đạt mục tiêu" value=days_ok sub="trong khoảng 90–110%" %}
+  {% include "_stat_card.html" with label="Ngày vượt mục tiêu" value=days_over sub="trên 110%" %}
+</div>
+
+{# ---------- Biểu đồ ---------- #}
+<div class="mb-6 grid gap-6 lg:grid-cols-[1fr_360px]">
+  <section class="card flex flex-col gap-4">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h2 class="type-h3">kcal mỗi ngày</h2>
+      <div class="flex items-center gap-3.5 type-caption text-ink-600">
+        <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-[3px] bg-brand-100"></span>Chưa đủ</span>
+        <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-[3px] bg-brand-600"></span>Đạt</span>
+        <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-[3px] bg-accent-500"></span>Vượt</span>
+      </div>
+    </div>
+    <div class="h-[260px]"><canvas id="kcalChart" aria-label="Biểu đồ kcal mỗi ngày so với mục tiêu {{ target }} kcal"></canvas></div>
+    <p class="type-caption text-ink-400">Bấm vào cột để xem chi tiết ngày đó.</p>
+  </section>
+
+  <section class="card flex flex-col items-center gap-4">
+    <h2 class="type-h3">Nguồn năng lượng</h2>
+    {% if total.kcal %}
+      <div class="relative size-[200px]">
+        <canvas id="macroChart" aria-label="Tỷ lệ năng lượng từ protein, carb, fat"></canvas>
+        <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span class="type-num-l">{{ total.kcal|num }}</span>
+          <span class="type-caption text-ink-400">kcal cả tuần</span>
+        </div>
+      </div>
+      <div class="flex w-full flex-col gap-2">
+        {% for m in macros %}
+          <div class="flex items-center gap-2">
+            <span class="size-2.5 rounded-full bg-{{ m.key }}"></span>
+            <span class="flex-1 type-body text-ink-600">{{ m.name }}</span>
+            <span class="type-small text-ink-400">{{ m.grams|num }} g</span>
+            <span class="w-10 text-right type-label">{{ m.percent }}%</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="py-16 text-center type-small text-ink-400">Chưa có dữ liệu tuần này.</p>
+    {% endif %}
+  </section>
+</div>
+
+{# ---------- Chi tiết ---------- #}
+<div class="grid gap-6 lg:grid-cols-[1fr_360px]">
+  <section class="card flex flex-col gap-3.5">
+    <h2 class="type-h3">Ăn nhiều nhất tuần này</h2>
+    {% for f in top_foods %}
+      <div class="flex items-center gap-3.5">
+        <span class="flex size-7 shrink-0 items-center justify-center rounded-full type-label {% if forloop.first %}bg-accent-50 text-accent-500{% else %}bg-muted text-ink-600{% endif %}">{{ forloop.counter }}</span>
+        <span class="w-[120px] shrink-0 truncate type-strong">{{ f.food__name_vi }}</span>
+        <span class="h-2 flex-1 rounded-full bg-muted"><span class="block h-2 rounded-full bg-brand-600" style="width: {{ f.bar }}%"></span></span>
+        <span class="w-12 text-right type-small text-ink-600">{{ f.times }} lần</span>
+        <span class="w-[84px] text-right type-label">{{ f.kcal|num }} kcal</span>
+      </div>
+    {% empty %}
+      <p class="type-small text-ink-400">Chưa có dữ liệu.</p>
+    {% endfor %}
+  </section>
+
+  <section class="card flex flex-col gap-3.5">
+    <h2 class="type-h3">Theo bữa</h2>
+    {% for b in by_meal %}
+      <div class="flex flex-col gap-1.5">
+        <div class="flex justify-between"><span class="type-body text-ink-600">{{ b.label }}</span><span class="type-label">{{ b.kcal|num }} kcal</span></div>
+        <span class="h-1.5 rounded-full bg-muted"><span class="block h-1.5 rounded-full bg-accent-500" style="width: {{ b.bar }}%"></span></span>
+      </div>
+    {% endfor %}
+  </section>
+</div>
+{{ chart|json_script:"chart-data" }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const data = JSON.parse(document.getElementById("chart-data").textContent);
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const C = { brand100: css("--color-brand-100"), brand600: css("--color-brand-600"), accent: css("--color-accent-500"),
+              muted: css("--color-muted"), ink900: css("--color-ink-900"), ink600: css("--color-ink-600"), ink400: css("--color-ink-400"),
+              protein: css("--color-protein"), carb: css("--color-carb"), fat: css("--color-fat") };
+  const fmt = (n) => Math.round(n).toLocaleString("vi-VN");
+  Chart.defaults.font.family = "'Be Vietnam Pro', sans-serif";
+
+  // Màu cột theo mức so với mục tiêu: chưa đủ < 90%, đạt 90–110%, vượt > 110% (giống thiết kế Figma).
+  const colors = data.kcal.map((k) => !k ? C.muted : k > data.target * 1.1 ? C.accent : k >= data.target * 0.9 ? C.brand600 : C.brand100);
+  const maxY = Math.max(...data.kcal, data.target) * 1.18;
+
+  // Plugin nhỏ: số kcal trên đầu cột + đường mục tiêu nét đứt có nhãn.
+  const overlay = {
+    id: "overlay",
+    afterDatasetsDraw(chart) {
+      const { ctx, chartArea: a, scales: { y } } = chart;
+      ctx.save();
+      const ty = y.getPixelForValue(data.target);
+      ctx.setLineDash([6, 5]); ctx.strokeStyle = C.ink600; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(a.left, ty); ctx.lineTo(a.right, ty); ctx.stroke(); ctx.setLineDash([]);
+      ctx.font = "500 12px 'Be Vietnam Pro'"; ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+      const label = `Mục tiêu ${fmt(data.target)}`;
+      ctx.fillStyle = "#fff"; ctx.fillRect(a.left, ty - 18, ctx.measureText(label).width + 8, 16);
+      ctx.fillStyle = C.ink600; ctx.fillText(label, a.left + 4, ty - 3);
+      ctx.textAlign = "center";
+      chart.getDatasetMeta(0).data.forEach((bar, i) => {
+        const k = data.kcal[i];
+        ctx.fillStyle = k ? C.ink600 : C.ink400;
+        ctx.fillText(k ? fmt(k) : "—", bar.x, bar.y - 6);
+      });
+      ctx.restore();
+    },
+  };
+
+  new Chart(document.getElementById("kcalChart"), {
+    type: "bar",
+    data: { labels: data.short, datasets: [{ data: data.kcal.map((k) => k || maxY * 0.01), backgroundColor: colors,
+      borderRadius: { topLeft: 8, topRight: 8, bottomLeft: 2, bottomRight: 2 }, borderSkipped: false, categoryPercentage: 0.82, barPercentage: 1 }] },
+    options: {
+      maintainAspectRatio: false,
+      layout: { padding: { top: 8 } },
+      scales: {
+        y: { display: false, beginAtZero: true, max: maxY },
+        x: { grid: { display: false }, border: { display: false },
+             ticks: { color: (c) => data.kcal[c.index] ? C.ink900 : C.ink400, font: { weight: 600, size: 13 } } },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { title: (items) => data.labels[items[0].dataIndex], label: (c) => `${fmt(data.kcal[c.dataIndex])} kcal` } },
+      },
+      onClick: (_, els) => { if (els.length) location.href = `{% url 'diary:home' %}?date=${data.dates[els[0].index]}`; },
+      onHover: (e, els) => (e.native.target.style.cursor = els.length ? "pointer" : "default"),
+    },
+    plugins: [overlay],
+  });
+
+  const macroEl = document.getElementById("macroChart");
+  if (macroEl) {
+    new Chart(macroEl, {
+      type: "doughnut",
+      data: { labels: ["Protein", "Carb", "Fat"], datasets: [{ data: data.macros, backgroundColor: [C.protein, C.carb, C.fat], borderWidth: 0, spacing: 3 }] },
+      options: { cutout: "68%", plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: (c) => `${c.label}: ${fmt(c.raw)} kcal` } } } },
+    });
+  }
+</script>
+{% endblock %}

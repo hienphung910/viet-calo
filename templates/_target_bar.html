@@ -1,0 +1,5 @@
+{# Thanh tiến độ so với mục tiêu. Cần biến `status` (TargetStatus). #}
+<div class="h-3 w-full overflow-hidden rounded-full bg-muted">
+  <div class="h-3 rounded-full {% if status.level == 'over' %}bg-accent-500{% elif status.level == 'ok' %}bg-brand-600{% else %}bg-brand-100{% endif %}"
+       style="width: {% if status.percent > 100 %}100{% else %}{{ status.percent }}{% endif %}%"></div>
+</div>

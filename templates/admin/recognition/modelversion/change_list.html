@@ -1,0 +1,12 @@
+{% extends "admin/change_list.html" %}
+{% block object-tools-items %}
+  <li><a href="{% url 'recognition:stats' %}">Thống kê &amp; so sánh</a></li>
+  <li><a href="#" onclick="document.getElementById('reload-model-form').submit(); return false;">Nạp lại model</a></li>
+  {{ block.super }}
+{% endblock %}
+{% block content %}
+  <form id="reload-model-form" method="post" action="{% url 'recognition:reload' %}" style="display:none">
+    {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+  </form>
+  {{ block.super }}
+{% endblock %}

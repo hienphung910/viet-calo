@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+db.sqlite3
+/staticfiles/
+/media/
+/models/
+/data/raw/
+/data/processed/
+/ml/outputs/
+.pytest_cache/
+/data/raw_toy/
+/data/processed_toy/
+/.dev_login.txt
+/backups/

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · VietCalo{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-lg card p-6">
+  <h1 class="mb-4 type-h1">{{ title }}</h1>
+  {% if log.image_path %}<img src="{{ log.image_path.url }}" alt="{{ log.food.name_vi }}" class="mb-4 max-h-56 w-full rounded-lg object-cover">{% endif %}
+  {% if log.predicted_label %}
+    <p class="mb-4 text-sm text-ink-600">AI đã đoán: <b>{{ log.predicted_label }}</b> ({% widthratio log.confidence 1 100 %}%). Đổi món ở đây sẽ được ghi nhận là sửa nhãn.</p>
+  {% endif %}
+
+  <form method="post" id="meal-form">{% csrf_token %}
+    {% for e in form.non_field_errors %}<p class="mb-2 text-sm text-danger">{{ e }}</p>{% endfor %}
+    <label class="mb-4 block text-sm font-medium">{{ form.food.label }}
+      <div class="mt-1">{{ form.food }}</div>
+      {% for e in form.food.errors %}<span class="text-danger">{{ e }}</span>{% endfor %}
+    </label>
+
+    <p class="mb-1 text-sm font-medium">Khẩu phần</p>
+    <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {% for value, label in form.fields.portion_choice.choices %}
+        <label class="cursor-pointer rounded-lg border p-2 text-center has-[:checked]:border-brand-500 has-[:checked]:bg-brand-50">
+          <input type="radio" name="portion_choice" value="{{ value }}" class="sr-only" {% if form.portion_choice.value == value %}checked{% endif %}>
+          <span class="block font-medium">{{ label }}</span>
+          <span class="block text-xs text-ink-600" data-grams-for="{{ value }}"></span>
+        </label>
+      {% endfor %}
+    </div>
+    <div id="custom-grams" class="mt-2">{{ form.portion_g }}</div>
+    {% for e in form.portion_g.errors %}<p class="text-sm text-danger">{{ e }}</p>{% endfor %}
+
+    <div class="mt-4 grid grid-cols-2 gap-3">
+      <label class="text-sm font-medium">{{ form.meal_type.label }}<div class="mt-1">{{ form.meal_type }}</div></label>
+      <label class="text-sm font-medium">{{ form.eaten_at.label }}<div class="mt-1">{{ form.eaten_at }}</div>
+        {% for e in form.eaten_at.errors %}<span class="text-danger">{{ e }}</span>{% endfor %}</label>
+    </div>
+
+    <div class="mt-4 rounded-xl bg-ink-900 p-4 text-white">
+      <p class="text-3xl font-bold"><span id="s-kcal">–</span> kcal</p>
+      <p class="text-sm text-line">Protein <span id="s-p">–</span> g · Carb <span id="s-c">–</span> g · Fat <span id="s-f">–</span> g</p>
+    </div>
+
+    <div class="mt-4 flex gap-2">
+      <button class="btn btn-primary flex-1">Lưu</button>
+      <a href="javascript:history.back()" class="btn btn-secondary">Hủy</a>
+    </div>
+  </form>
+</div>
+{{ foods_data|json_script:"foods-data" }}
+{{ multipliers|json_script:"multipliers" }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Tính thử kcal trên trình duyệt; giá trị lưu thật do server tính lại.
+  const foods = JSON.parse(document.getElementById("foods-data").textContent);
+  const mult = JSON.parse(document.getElementById("multipliers").textContent);
+  const form = document.getElementById("meal-form");
+  const gramsInput = form.querySelector("[name=portion_g]");
+  gramsInput.placeholder = "Số gram";
+
+  function update() {
+    const food = foods[form.querySelector("[name=food]").value];
+    const pc = form.querySelector("input[name=portion_choice]:checked")?.value;
+    document.getElementById("custom-grams").classList.toggle("hidden", pc !== "custom");
+    for (const [key, m] of Object.entries(mult)) {
+      form.querySelector(`[data-grams-for=${key}]`).textContent = food ? `${Math.round(food.portion * m)} g` : "";
+    }
+    let grams = null;
+    if (food && pc === "custom") grams = parseFloat(gramsInput.value) || null;
+    else if (food && pc) grams = food.portion * mult[pc];
+    const show = (id, v, digits) => (document.getElementById(id).textContent = grams ? (v * grams / 100).toFixed(digits) : "–");
+    show("s-kcal", food?.kcal, 0); show("s-p", food?.p, 1); show("s-c", food?.c, 1); show("s-f", food?.f, 1);
+  }
+  form.addEventListener("input", update);
+  form.addEventListener("change", update);
+  update();
+</script>
+{% endblock %}

@@ -1,0 +1,14 @@
+{# Render một form Django với nhãn, lỗi và help text. Dùng: {% include "_form.html" %} #}
+{% if form.non_field_errors %}
+  <div class="mb-4 rounded-xl bg-red-50 px-4 py-3 type-small text-danger">
+    {% for e in form.non_field_errors %}<p>{{ e }}</p>{% endfor %}
+  </div>
+{% endif %}
+{% for field in form %}
+  <div class="mb-4">
+    <label for="{{ field.id_for_label }}" class="mb-1.5 block type-label">{{ field.label }}</label>
+    {{ field }}
+    {% if field.help_text %}<p class="mt-1 type-caption text-ink-400">{{ field.help_text|safe }}</p>{% endif %}
+    {% for e in field.errors %}<p class="mt-1 type-small text-danger">{{ e }}</p>{% endfor %}
+  </div>
+{% endfor %}

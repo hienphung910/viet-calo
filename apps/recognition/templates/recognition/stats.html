@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Thống kê model · VietCalo{% endblock %}
+{% block head %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>{% endblock %}
+{% block content %}
+<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+  <div>
+    <h1 class="type-h1">Thống kê nhận diện</h1>
+    <p class="text-sm text-ink-600">Độ chính xác <b>thực tế</b> = món người dùng xác nhận có trùng với model đoán không.
+      Model đang chạy trong process này: <b>{{ loaded_version.version|default:"chưa nạp" }}</b>.</p>
+  </div>
+  <div class="flex gap-2 text-sm">
+    <form method="post" action="{% url 'recognition:reload' %}">{% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.path }}">
+      <button class="rounded-lg bg-white px-3 py-1 shadow-card hover:bg-muted">↻ Nạp lại model</button>
+    </form>
+    <a href="{% url 'admin:recognition_modelversion_changelist' %}" class="rounded-lg bg-white px-3 py-1 shadow-card hover:bg-muted">Quản lý phiên bản</a>
+    <a href="{% url 'admin:feedback_feedbackimage_changelist' %}" class="rounded-lg bg-white px-3 py-1 shadow-card hover:bg-muted">Ảnh phản hồi</a>
+  </div>
+</div>
+
+{% with o=overview %}
+<div class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+  <div class="card p-4"><p class="text-sm text-ink-600">Lượt nhận diện</p><p class="text-2xl font-bold">{{ o.n }}</p></div>
+  <div class="card p-4"><p class="text-sm text-ink-600">Top-1 đúng</p><p class="text-2xl font-bold text-brand-600">{% if o.top1_acc is not None %}{% widthratio o.top1_acc 1 100 %}%{% else %}–{% endif %}</p><p class="text-xs text-ink-400">{{ o.correct }} đúng · {{ o.wrong }} sửa nhãn</p></div>
+  <div class="card p-4"><p class="text-sm text-ink-600">Đúng trong top-3</p><p class="text-2xl font-bold">{% if o.top3_acc is not None %}{% widthratio o.top3_acc 1 100 %}%{% else %}–{% endif %}</p></div>
+  <div class="card p-4"><p class="text-sm text-ink-600">Độ tin cậy TB</p><p class="text-2xl font-bold">{% if o.avg_conf is not None %}{% widthratio o.avg_conf 1 100 %}%{% else %}–{% endif %}</p></div>
+  <div class="card p-4"><p class="text-sm text-ink-600">Dưới ngưỡng {% widthratio o.threshold 1 100 %}%</p><p class="text-2xl font-bold text-amber-600">{% if o.low_rate is not None %}{% widthratio o.low_rate 1 100 %}%{% else %}–{% endif %}</p><p class="text-xs text-ink-400">phải hỏi người dùng chọn</p></div>
+</div>
+{% endwith %}
+
+<div class="mb-4 grid gap-4 md:grid-cols-2">
+  <div class="card p-4">
+    <h2 class="mb-1 font-semibold">So sánh các phiên bản model</h2>
+    <p class="mb-2 text-xs text-ink-600">Lúc train (val/test trên dataset) so với thực tế (ảnh người dùng). Thực tế thấp hơn nhiều = ảnh thật khác ảnh train (domain shift).</p>
+    <div class="h-64"><canvas id="versionChart" aria-label="So sánh độ chính xác các phiên bản model"></canvas></div>
+  </div>
+  <div class="card p-4">
+    <h2 class="mb-1 font-semibold">Độ chính xác theo độ tin cậy</h2>
+    <p class="mb-2 text-xs text-ink-600">Nhóm tin cậy cao mà đúng ít = model "tự tin sai". Dùng biểu đồ này để chọn ngưỡng (hiện tại {% widthratio overview.threshold 1 100 %}%: dưới ngưỡng thì hỏi người dùng).</p>
+    <div class="h-64"><canvas id="bucketChart" aria-label="Độ chính xác theo nhóm độ tin cậy"></canvas></div>
+  </div>
+</div>
+
+<div class="mb-4 overflow-x-auto card p-4">
+  <h2 class="mb-2 font-semibold">Bảng phiên bản</h2>
+  <table class="w-full min-w-[640px] text-sm">
+    <thead class="text-left text-ink-600"><tr>
+      <th class="py-1">Phiên bản</th><th>Backbone</th><th class="text-right">Số lớp</th><th class="text-right">Val acc</th><th class="text-right">Test acc</th>
+      <th class="text-right">Lượt dùng</th><th class="text-right">Thực tế top-1</th><th class="text-right">Thực tế top-3</th><th class="text-right">Tin cậy TB</th></tr></thead>
+    <tbody>
+      {% for r in comparison %}
+        <tr class="border-t {% if r.mv.is_active %}bg-brand-50{% endif %}">
+          <td class="py-2 font-medium">{{ r.mv.version }}{% if r.mv.is_active %} <span class="rounded bg-brand-600 px-1.5 text-xs text-white">đang dùng</span>{% endif %}</td>
+          <td>{{ r.mv.backbone }}</td>
+          <td class="text-right">{{ r.mv.num_classes }}</td>
+          <td class="text-right">{% if r.mv.val_accuracy is not None %}{% widthratio r.mv.val_accuracy 1 100 %}%{% else %}–{% endif %}</td>
+          <td class="text-right">{% if r.mv.test_accuracy is not None %}{% widthratio r.mv.test_accuracy 1 100 %}%{% else %}–{% endif %}</td>
+          <td class="text-right">{{ r.n }}</td>
+          <td class="text-right font-semibold">{% if r.real_top1 is not None %}{% widthratio r.real_top1 1 100 %}%{% else %}–{% endif %}</td>
+          <td class="text-right">{% if r.real_top3 is not None %}{% widthratio r.real_top3 1 100 %}%{% else %}–{% endif %}</td>
+          <td class="text-right">{% if r.avg_conf is not None %}{% widthratio r.avg_conf 1 100 %}%{% else %}–{% endif %}</td>
+        </tr>
+      {% empty %}<tr><td colspan="9" class="py-2 text-ink-600">Chưa có model nào.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="grid gap-4 md:grid-cols-3">
+  <div class="card p-4">
+    <h2 class="mb-2 font-semibold">Hay nhầm nhất</h2>
+    {% for c in confusions %}
+      <div class="flex justify-between border-t py-1.5 text-sm first:border-0"><span>{{ c.predicted_label }} → <b>{{ c.food__name_vi }}</b></span><span class="text-ink-600">{{ c.n }}</span></div>
+    {% empty %}<p class="text-sm text-ink-600">Chưa có lần sửa nhãn nào.</p>{% endfor %}
+  </div>
+  <div class="card p-4">
+    <h2 class="mb-2 font-semibold">Món nhận diện kém nhất</h2>
+    {% for f in per_food %}
+      <div class="flex justify-between border-t py-1.5 text-sm first:border-0"><span>{{ f.food__name_vi }}</span><span class="text-ink-600">{% widthratio f.acc 1 100 %}% ({{ f.correct }}/{{ f.n }})</span></div>
+    {% empty %}<p class="text-sm text-ink-600">Chưa có dữ liệu.</p>{% endfor %}
+  </div>
+  <div class="space-y-4">
+    <div class="card p-4">
+      <h2 class="mb-2 font-semibold">Ảnh phản hồi</h2>
+      {% with f=feedback %}
+      <p class="text-sm">Tổng {{ f.total }} · đồng ý {{ f.consented }} · đã train {{ f.used }} · <b class="text-brand-700">chờ xuất {{ f.pending }}</b></p>
+      {% for b in f.by_food %}<div class="flex justify-between text-xs text-ink-600"><span>{{ b.true_food__name_vi }}</span><span>{{ b.n }} ({{ b.pending }} chờ)</span></div>{% endfor %}
+      <p class="mt-2 text-xs text-ink-400">Xuất sang data/raw: <code>python manage.py export_feedback</code> hoặc action trong trang Ảnh phản hồi.</p>
+      {% endwith %}
+    </div>
+    <div class="card p-4">
+      <h2 class="mb-2 font-semibold">Món phổ biến (mọi người dùng)</h2>
+      {% for p in popular %}<div class="flex justify-between text-sm"><span>{{ p.food__name_vi }}</span><span class="text-ink-600">{{ p.times }} lần · {{ p.users }} người</span></div>
+      {% empty %}<p class="text-sm text-ink-600">Chưa có dữ liệu.</p>{% endfor %}
+    </div>
+  </div>
+</div>
+{{ chart|json_script:"chart-data" }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const d = JSON.parse(document.getElementById("chart-data").textContent);
+  const pctAxis = { min: 0, max: 100, ticks: { callback: (v) => v + "%" } };
+  new Chart(document.getElementById("versionChart"), {
+    type: "bar",
+    data: {
+      labels: d.versions,
+      datasets: [
+        { label: "Val (train)", data: d.val, backgroundColor: "#cbd5e1" },
+        { label: "Test (train)", data: d.test, backgroundColor: "#94a3b8" },
+        { label: "Thực tế top-1", data: d.real_top1, backgroundColor: "#10b981" },
+        { label: "Thực tế top-3", data: d.real_top3, backgroundColor: "#6ee7b7" },
+      ],
+    },
+    options: { maintainAspectRatio: false, scales: { y: pctAxis }, plugins: { legend: { position: "bottom" } } },
+  });
+  new Chart(document.getElementById("bucketChart"), {
+    data: {
+      labels: d.bucket_labels,
+      datasets: [
+        { type: "bar", label: "Tỷ lệ đúng", data: d.bucket_acc, backgroundColor: "#0ea5e9", yAxisID: "y" },
+        { type: "line", label: "Số lượt", data: d.bucket_n, borderColor: "#f59e0b", yAxisID: "y1" },
+      ],
+    },
+    options: {
+      maintainAspectRatio: false,
+      scales: { y: pctAxis, y1: { position: "right", beginAtZero: true, grid: { drawOnChartArea: false } } },
+      plugins: { legend: { position: "bottom" } },
+    },
+  });
+</script>
+{% endblock %}

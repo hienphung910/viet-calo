@@ -1,0 +1,13 @@
+# --- Web ---
+Django>=5.2,<5.3          # bản LTS
+django-environ>=0.11      # đọc cấu hình từ file .env (DATABASE_URL, SECRET_KEY...)
+Pillow>=10.4              # ImageField + xử lý ảnh upload
+mysqlclient>=2.2          # driver MySQL chính thức của Django (có sẵn wheel cho Windows)
+whitenoise>=6.7           # phục vụ file tĩnh (CSS/JS của admin) khi DEBUG=False
+waitress>=3.0             # web server viết bằng Python, chạy được trên Windows (dùng khi demo)
+
+# Web cần thêm torch + timm để dự đoán: cài theo hướng dẫn trong requirements-ml.txt
+
+# --- Test ---
+pytest>=8
+pytest-django>=4.9

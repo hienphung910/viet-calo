@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Xóa bữa ăn · VietCalo{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-md card p-6">
+  <h1 class="mb-3 type-h2">Xóa bữa ăn này?</h1>
+  {% if log.image_path %}<img src="{{ log.image_path.url }}" alt="{{ log.food.name_vi }}" class="mb-3 max-h-48 w-full rounded-lg object-cover">{% endif %}
+  <p class="mb-1"><b>{{ log.food.name_vi }}</b> · {{ log.portion_g|floatformat:0 }} g · {{ log.kcal|floatformat:0 }} kcal</p>
+  <p class="mb-4 text-sm text-ink-600">{{ log.get_meal_type_display }}, {{ log.eaten_at|date:"H:i d/m/Y" }}</p>
+  <p class="mb-4 text-sm text-ink-600">Ảnh của bữa ăn cũng bị xóa. Nếu bạn đã đồng ý cho dùng ảnh để cải thiện model, bản sao ẩn danh đó vẫn được giữ.</p>
+  <form method="post" class="flex gap-2">{% csrf_token %}
+    <button class="btn flex-1 bg-danger text-white hover:opacity-90">Xóa</button>
+    <a href="{% url 'diary:home' %}?date={{ log.eaten_date|date:'Y-m-d' }}" class="btn btn-secondary">Hủy</a>
+  </form>
+</div>
+{% endblock %}

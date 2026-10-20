@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{# Thiết kế: Figma "VietCalo UI" > 03 · Xác nhận món (Desktop) #}
+{% block title %}Xác nhận món · VietCalo{% endblock %}
+{% block content %}
+<form method="post" id="confirm-form" class="grid items-start gap-6 lg:grid-cols-[520px_1fr]">{% csrf_token %}
+  {# ---------- Ảnh ---------- #}
+  <div class="flex flex-col gap-3 lg:sticky lg:top-[108px]">
+    <img src="{{ MEDIA_URL }}{{ pending.image }}" alt="Ảnh món ăn" class="aspect-square w-full rounded-panel object-cover shadow-card">
+    <div class="flex justify-between gap-4 type-small text-ink-400">
+      <span>Ảnh đã xóa thông tin vị trí (GPS)</span>
+      <span class="type-caption">Model {{ pending.model_version }}</span>
+    </div>
+  </div>
+
+  {# ---------- Form ---------- #}
+  <div class="flex flex-col gap-5">
+    {% if is_confident %}
+      <div class="flex items-center gap-4 rounded-card border border-brand-100 bg-brand-50 p-6">
+        <span class="flex size-[52px] shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white">{% include "icons/sparkles.svg" with cls="size-[26px]" %}</span>
+        <div>
+          <p class="type-label text-brand-700">AI nhận diện được</p>
+          <div class="flex flex-wrap items-center gap-2.5">
+            <h1 class="type-h1">{{ candidates.0.food.name_vi }}</h1>
+            <span class="rounded-full bg-brand-600 px-2.5 py-[3px] type-caption text-white">{{ candidates.0.percent }}% tin cậy</span>
+          </div>
+          <p class="type-small text-ink-600">Nhận diện được món này. Sai món? Chọn lại bên dưới.</p>
+        </div>
+      </div>
+    {% else %}
+      <div class="flex items-center gap-4 rounded-card border border-[#FED7AA] bg-accent-50 p-6">
+        <span class="flex size-[52px] shrink-0 items-center justify-center rounded-xl bg-accent-500 text-white">{% include "icons/sparkles.svg" with cls="size-[26px]" %}</span>
+        <div>
+          <p class="type-label text-accent-600">Model chưa chắc chắn</p>
+          <h1 class="type-h2">Bạn hãy chọn món đúng</h1>
+          <p class="type-small text-ink-600">Độ tin cậy cao nhất {{ candidates.0.percent }}% thấp hơn ngưỡng {{ threshold_percent }}%.</p>
+        </div>
+      </div>
+    {% endif %}
+
+    {# Món ăn: top-3 + món khác (component PredictionRow) #}
+    <fieldset class="card flex flex-col gap-2.5">
+      <legend class="sr-only">Món ăn</legend>
+      <h2 class="type-h3" aria-hidden="true">Món ăn</h2>
+      {% for e in form.choice.errors %}<p class="type-small text-danger">{{ e }}</p>{% endfor %}
+      {% for c in candidates %}
+        <label class="flex h-[60px] items-center gap-3 rounded-xl bg-white px-4 ring-1 ring-line ring-inset has-[input:checked]:bg-brand-50 has-[input:checked]:ring-2 has-[input:checked]:ring-brand-600 {% if c.food %}cursor-pointer{% else %}opacity-50{% endif %}">
+          <input type="radio" name="choice" value="{% if c.food %}{{ c.food.pk }}{% endif %}" class="peer sr-only" {% if not c.food %}disabled{% endif %}
+                 {% if c.food and form.choice.value|stringformat:"s" == c.food.pk|stringformat:"s" %}checked{% endif %}>
+          <span class="size-[18px] shrink-0 rounded-full border-[1.5px] border-ink-400 peer-checked:border-[5px] peer-checked:border-brand-600"></span>
+          <span class="flex min-w-0 flex-1 flex-col gap-1.5">
+            <span class="type-strong truncate">{% if c.food %}{{ c.food.name_vi }}{% else %}{{ c.label }} (chưa có dữ liệu dinh dưỡng){% endif %}</span>
+            <span class="h-1.5 rounded-full bg-muted"><span class="block h-1.5 rounded-full bg-ink-400 peer-checked:bg-brand-600 [label:has(input:checked)_&]:bg-brand-600" style="width: {{ c.percent }}%"></span></span>
+          </span>
+          <span class="type-label text-ink-600 [label:has(input:checked)_&]:text-brand-700">{{ c.percent }}%</span>
+        </label>
+      {% endfor %}
+      <label class="flex items-center gap-3 rounded-xl px-4 py-2.5 ring-1 ring-line ring-inset has-[input:checked]:bg-brand-50 has-[input:checked]:ring-2 has-[input:checked]:ring-brand-600">
+        <input type="radio" name="choice" value="other" class="peer sr-only" {% if form.choice.value == "other" %}checked{% endif %}>
+        <span class="size-[18px] shrink-0 rounded-full border-[1.5px] border-ink-400 peer-checked:border-[5px] peer-checked:border-brand-600"></span>
+        <span class="shrink-0 type-strong">Món khác</span>
+        <span class="relative min-w-0 flex-1">
+          <select name="other_food" id="other_food" class="w-full appearance-none rounded-lg bg-muted py-2 pl-3 pr-9 type-body text-ink-900 focus:outline-none focus:ring-2 focus:ring-brand-100">
+            <option value="">Chọn trong {{ all_foods|length }} món…</option>
+            {% for f in all_foods %}
+              <option value="{{ f.pk }}" {% if form.other_food.value|stringformat:"s" == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.name_vi }}</option>
+            {% endfor %}
+          </select>
+          {% include "icons/chevron-down.svg" with cls="pointer-events-none absolute right-2 top-1/2 size-[18px] -translate-y-1/2 text-ink-600" %}
+        </span>
+      </label>
+      {% for e in form.other_food.errors %}<p class="type-small text-danger">{{ e }}</p>{% endfor %}
+    </fieldset>
+
+    {# Khẩu phần (component Chip) + bữa #}
+    <fieldset class="card flex flex-col gap-3">
+      <legend class="sr-only">Khẩu phần và bữa</legend>
+      <div class="flex items-center justify-between">
+        <h2 class="type-h3" aria-hidden="true">Khẩu phần</h2>
+        <span id="default-portion" class="type-small text-ink-400"></span>
+      </div>
+      <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        {% for value, label in form.fields.portion_choice.choices %}
+          <label class="flex cursor-pointer flex-col items-center gap-0.5 rounded-xl bg-white px-4 py-3 ring-1 ring-line ring-inset has-[input:checked]:bg-brand-50 has-[input:checked]:text-brand-700 has-[input:checked]:ring-2 has-[input:checked]:ring-brand-600">
+            <input type="radio" name="portion_choice" value="{{ value }}" class="sr-only" {% if form.portion_choice.value == value %}checked{% endif %}>
+            <span class="type-label">{% if value == "custom" %}Tự nhập{% else %}{{ label }}{% endif %}</span>
+            <span class="type-caption text-ink-600 [label:has(input:checked)_&]:text-brand-700" data-grams-for="{{ value }}">… g</span>
+          </label>
+        {% endfor %}
+      </div>
+      <div id="custom-grams" class="hidden">
+        <input type="number" name="portion_g" id="portion_g" min="1" max="3000" step="1" placeholder="Nhập số gram"
+               value="{{ form.portion_g.value|default_if_none:'' }}" class="field">
+      </div>
+      {% for e in form.portion_g.errors %}<p class="type-small text-danger">{{ e }}</p>{% endfor %}
+      <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="Bữa">
+        {% for value, label in form.fields.meal_type.choices %}
+          <label class="cursor-pointer rounded-full bg-muted px-3.5 py-1.5 type-label text-ink-600 has-[input:checked]:bg-ink-900 has-[input:checked]:text-white has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-100">
+            <input type="radio" name="meal_type" value="{{ value }}" class="sr-only" {% if form.meal_type.value == value %}checked{% endif %}>{{ label }}
+          </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    {# Tổng dinh dưỡng (tính thử trên trình duyệt) #}
+    <div id="summary" class="flex flex-wrap items-center justify-between gap-4 rounded-card bg-ink-900 p-6 text-white">
+      <div>
+        <p class="type-caption text-ink-400">Ước tính cho <span id="s-grams">–</span> g</p>
+        <p class="flex items-baseline gap-1.5"><span id="s-kcal" class="type-num-xl">–</span><span class="type-strong text-ink-400">kcal</span></p>
+      </div>
+      <div class="flex gap-5 text-center">
+        {% for key, name in macro_names %}
+          <div class="flex flex-col items-center gap-0.5">
+            <span class="size-2 rounded-full bg-{{ key }}"></span>
+            <span class="type-h3"><span id="s-{{ key }}">–</span> g</span>
+            <span class="type-caption text-ink-400">{{ name }}</span>
+          </div>
+        {% endfor %}
+      </div>
+      <p class="w-full type-caption text-ink-400">Chỉ là ước tính: khối lượng thật không đo được từ ảnh.</p>
+    </div>
+
+    <label class="flex cursor-pointer items-center gap-2.5 type-body text-ink-600">
+      <input type="checkbox" name="consent" class="peer sr-only" {% if form.consent.value %}checked{% endif %}>
+      <span class="flex size-5 shrink-0 items-center justify-center rounded-lg bg-white text-transparent ring-1 ring-ink-400 ring-inset peer-checked:bg-brand-600 peer-checked:text-white peer-checked:ring-0 peer-focus-visible:ring-2 peer-focus-visible:ring-brand-100">
+        {% include "icons/check.svg" with cls="size-3.5" %}
+      </span>
+      {{ form.fields.consent.label }}
+    </label>
+
+    <button class="btn btn-primary w-full">{% include "icons/check.svg" %}Lưu vào nhật ký</button>
+  </div>
+</form>
+{{ foods_data|json_script:"foods-data" }}
+{{ multipliers|json_script:"multipliers" }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Tính thử kcal ngay trên trình duyệt khi đổi món/khẩu phần. Giá trị lưu thật do server tính lại.
+  const foods = JSON.parse(document.getElementById("foods-data").textContent);
+  const mult = JSON.parse(document.getElementById("multipliers").textContent);
+  const form = document.getElementById("confirm-form");
+  const gramsInput = document.getElementById("portion_g");
+  const fmt = (n, d = 0) => n.toLocaleString("vi-VN", { maximumFractionDigits: d });
+
+  function selectedFood() {
+    const choice = form.querySelector("input[name=choice]:checked");
+    if (!choice) return null;
+    const id = choice.value === "other" ? document.getElementById("other_food").value : choice.value;
+    return foods[id] || null;
+  }
+
+  function update() {
+    const food = selectedFood();
+    const pc = form.querySelector("input[name=portion_choice]:checked")?.value;
+    document.getElementById("custom-grams").classList.toggle("hidden", pc !== "custom");
+    document.getElementById("default-portion").textContent = food ? `Mặc định: ${fmt(food.portion)} g / phần` : "";
+    for (const [key, m] of Object.entries(mult)) {
+      form.querySelector(`[data-grams-for=${key}]`).textContent = food ? `${fmt(food.portion * m)} g` : "… g";
+    }
+    let grams = null;
+    if (food && pc === "custom") grams = parseFloat(gramsInput.value) || null;
+    else if (food && pc) grams = food.portion * mult[pc];
+    const set = (id, v, d) => (document.getElementById(id).textContent = grams ? fmt(v * grams / 100, d) : "–");
+    document.getElementById("s-grams").textContent = grams ? fmt(grams) : "–";
+    set("s-kcal", food?.kcal, 0); set("s-protein", food?.p, 0); set("s-carb", food?.c, 0); set("s-fat", food?.f, 0);
+  }
+
+  // Chọn trong danh sách "Món khác" thì tự tích "Món khác".
+  document.getElementById("other_food").addEventListener("change", () => {
+    form.querySelector("input[name=choice][value=other]").checked = true;
+    update();
+  });
+  form.addEventListener("input", update);
+  form.addEventListener("change", update);
+  update();
+</script>
+{% endblock %}

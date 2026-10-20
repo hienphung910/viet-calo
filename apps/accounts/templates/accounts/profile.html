@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Hồ sơ · VietCalo{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-md card p-6">
+  <h1 class="mb-1 type-h1">Hồ sơ</h1>
+  <p class="mb-4 text-sm text-ink-600">{{ user.email }} · tham gia {{ user.date_joined|date:"d/m/Y" }}</p>
+  <form method="post">{% csrf_token %}
+    {% include "_form.html" %}
+    <button class="btn btn-primary w-full">Lưu</button>
+  </form>
+</div>
+{% endblock %}

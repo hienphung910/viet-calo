@@ -1,0 +1,10 @@
+{% extends "admin/change_list.html" %}
+{% block object-tools-items %}
+  <li><a href="#" onclick="document.getElementById('seed-foods-form').submit(); return false;"
+         title="Đọc lại data/nutrition.csv: thêm món mới, cập nhật món đã có">Nạp lại từ nutrition.csv</a></li>
+  {{ block.super }}
+{% endblock %}
+{% block content %}
+  <form id="seed-foods-form" method="post" action="{% url 'admin:foods_food_seed' %}" style="display:none">{% csrf_token %}</form>
+  {{ block.super }}
+{% endblock %}

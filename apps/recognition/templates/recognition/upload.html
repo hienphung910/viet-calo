@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+{# Thiết kế: Figma "VietCalo UI" > 02 · Quét món (Desktop) #}
+{% block title %}Quét món · VietCalo{% endblock %}
+{% block content %}
+<form method="post" enctype="multipart/form-data" id="upload-form" class="grid items-start gap-6 lg:grid-cols-[1fr_400px]">{% csrf_token %}
+  {# ---------- Cột trái: camera / chọn ảnh ---------- #}
+  <section class="card flex flex-col gap-5">
+    <div>
+      <h1 class="type-h1">Nhận diện món ăn</h1>
+      <p class="type-body text-ink-600">Mỗi ảnh một món, chụp rõ, đủ sáng, tốt nhất từ trên xuống.</p>
+    </div>
+
+    <div class="flex gap-1 rounded-xl bg-muted p-1" role="tablist">
+      <button type="button" id="tab-camera" role="tab" class="flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 type-strong">
+        {% include "icons/camera.svg" with cls="size-[18px]" %}Camera
+      </button>
+      <button type="button" id="tab-file" role="tab" class="flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 type-strong">
+        {% include "icons/image.svg" with cls="size-[18px]" %}Chọn ảnh có sẵn
+      </button>
+    </div>
+
+    {# ---- Camera ---- #}
+    <div id="camera-panel" class="hidden flex-col gap-5">
+      <div class="relative aspect-[4/3] overflow-hidden rounded-panel bg-[radial-gradient(circle,#5C4D3D_0%,#3C332A_50%,#2C2621_75%,#1C1917_100%)]">
+        <video id="cam-video" class="hidden size-full object-cover" playsinline muted></video>
+        <img id="cam-still" class="hidden size-full object-cover" alt="Ảnh vừa chụp">
+        <div id="cam-guide" class="pointer-events-none absolute left-1/2 top-1/2 hidden h-[75%] w-[71%] -translate-x-1/2 -translate-y-1/2 rounded-3xl border-2 border-dashed border-white/60"></div>
+        <div id="cam-msg" class="absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center type-body text-white/80">
+          <span>Cho phép trình duyệt dùng camera để quét món.</span>
+          <button type="button" id="cam-start" class="btn btn-primary">{% include "icons/camera.svg" %}Bật camera</button>
+        </div>
+        {# Kết quả nhận diện trực tiếp, cập nhật khoảng mỗi giây #}
+        <div id="live-badge" class="absolute left-5 top-5 hidden items-center gap-2 rounded-full bg-brand-600 py-2 pl-3 pr-3.5 type-strong text-white shadow-float">
+          <span class="size-2 rounded-full bg-white"></span><span id="live-badge-text"></span>
+        </div>
+        <div id="cam-hint" class="absolute bottom-4 left-1/2 hidden -translate-x-1/2 rounded-full bg-black/45 px-3 py-1.5 type-caption text-white">Đặt món vào giữa khung</div>
+      </div>
+
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex min-w-0 flex-1">
+          <button type="button" id="cam-switch" class="btn btn-secondary hidden">{% include "icons/refresh.svg" %}<span class="max-sm:hidden">Đổi camera</span></button>
+        </div>
+        {# Nút chụp: vòng cam viền ngoài + chấm cam bên trong. Phím tắt: Space #}
+        <button type="button" id="cam-capture" class="group hidden size-[76px] shrink-0 items-center justify-center rounded-full ring-[3px] ring-accent-500 ring-inset disabled:opacity-40" aria-label="Chụp ảnh" aria-keyshortcuts="Space" title="Chụp (phím Space)">
+          <span class="size-[60px] rounded-full bg-accent-500 transition group-hover:bg-accent-600 group-active:scale-95"></span>
+        </button>
+        <button type="button" id="cam-retake" class="btn btn-secondary hidden">{% include "icons/refresh.svg" %}Chụp lại</button>
+        <label class="flex min-w-0 flex-1 cursor-pointer items-center justify-end gap-2.5 type-strong">
+          <input type="checkbox" id="live-toggle" class="peer sr-only" checked>
+          <span class="relative h-6 w-10 shrink-0 rounded-full bg-ink-400 transition peer-checked:bg-brand-600 peer-focus-visible:ring-3 peer-focus-visible:ring-brand-100 after:absolute after:left-[3px] after:top-[3px] after:size-[18px] after:rounded-full after:bg-white after:transition peer-checked:after:translate-x-4"></span>
+          <span class="max-sm:hidden">Nhận diện trực tiếp</span>
+        </label>
+      </div>
+      <select id="cam-select" class="hidden" aria-label="Chọn camera"></select>
+    </div>
+
+    {# ---- Chọn file ---- #}
+    <div id="file-panel" class="hidden">
+      <label for="id_image" class="flex aspect-[4/3] cursor-pointer flex-col items-center justify-center gap-3 overflow-hidden rounded-panel border-2 border-dashed border-line bg-page text-center hover:border-brand-600">
+        <img id="preview" class="hidden size-full object-cover" alt="Ảnh xem trước">
+        <span id="placeholder" class="flex flex-col items-center gap-3 px-6">
+          <span class="flex size-14 items-center justify-center rounded-full bg-brand-50 text-brand-600">{% include "icons/image.svg" with cls="size-7" %}</span>
+          <span class="type-h3">Bấm để chọn ảnh món ăn</span>
+          <span class="type-small text-ink-400">JPG, PNG, WEBP · tối đa 10 MB · trên điện thoại có thể chụp bằng camera của máy</span>
+        </span>
+      </label>
+    </div>
+
+    <input type="file" name="image" id="id_image" accept="image/jpeg,image/png,image/webp" class="hidden">
+    {% for e in form.image.errors %}<p class="type-small text-danger">{{ e }}</p>{% endfor %}
+  </section>
+
+  {# ---------- Cột phải ---------- #}
+  <aside class="flex flex-col gap-6">
+    <section class="card flex flex-col gap-3" aria-live="polite">
+      <div class="flex items-center gap-2">
+        {% include "icons/sparkles.svg" with cls="size-5 text-brand-600" %}
+        <h2 class="type-h3">Kết quả trực tiếp</h2>
+      </div>
+      <p class="type-small text-ink-400">Cập nhật mỗi giây · chưa lưu ảnh</p>
+      <div id="live-list" class="flex flex-col gap-3">
+        <p id="live-empty" class="rounded-xl bg-page px-4 py-6 text-center type-small text-ink-400">Bật camera và bật “Nhận diện trực tiếp” để xem món AI đoán.</p>
+      </div>
+    </section>
+
+    <section class="card flex flex-col gap-3.5">
+      <h2 class="type-h3">Mẹo chụp chuẩn</h2>
+      {% for tip in tips %}
+        <div class="flex gap-2.5">
+          <span class="mt-0.5 flex size-[22px] shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600">{% include "icons/check.svg" with cls="size-3.5" %}</span>
+          <p class="type-body text-ink-600">{{ tip }}</p>
+        </div>
+      {% endfor %}
+    </section>
+
+    <button id="submit-btn" class="btn btn-primary w-full" disabled>Nhận diện ảnh này</button>
+  </aside>
+</form>
+{{ threshold|json_script:"threshold" }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+/*
+ * Lấy ảnh món ăn: bằng camera (laptop / điện thoại) hoặc chọn file có sẵn. JavaScript thuần.
+ * Camera dùng API getUserMedia: trình duyệt chỉ cho phép trên https hoặc localhost/127.0.0.1.
+ * Ảnh chụp được đưa vào ô <input type=file> rồi gửi bằng form như bình thường, nên server
+ * không phân biệt ảnh từ camera hay từ file.
+ */
+const $ = (id) => document.getElementById(id);
+const form = $("upload-form"), input = $("id_image"), submitBtn = $("submit-btn");
+const video = $("cam-video"), still = $("cam-still"), msg = $("cam-msg"), badge = $("live-badge");
+const THRESHOLD = JSON.parse($("threshold").textContent);
+const CSRF = form.querySelector("[name=csrfmiddlewaretoken]").value;
+const PREDICT_URL = "{% url 'recognition:api_predict' %}?preview=1";
+const cameraSupported = window.isSecureContext && !!navigator.mediaDevices?.getUserMedia;
+const show = (el, on, display = "flex") => { el.classList.toggle("hidden", !on); el.classList.toggle(display, on); };
+let stream = null, liveTimer = null, liveBusy = false, cameras = [];
+
+// ---------- Chuyển tab ----------
+function showTab(name) {
+  const cam = name === "camera";
+  show($("camera-panel"), cam);
+  show($("file-panel"), !cam, "block");
+  for (const [id, on] of [["tab-camera", cam], ["tab-file", !cam]]) {
+    $(id).classList.toggle("bg-white", on);
+    $(id).classList.toggle("shadow-card", on);
+    $(id).classList.toggle("text-ink-900", on);
+    $(id).classList.toggle("text-ink-600", !on);
+    $(id).setAttribute("aria-selected", on);
+  }
+  if (!cam) {
+    stopCamera();
+    // Ảnh vừa chụp bằng camera (nếu có) vẫn hiện ở tab này, tránh gửi nhầm ảnh không nhìn thấy.
+    if (input.files[0]) showPreview(input.files[0]);
+  }
+}
+$("tab-camera").onclick = () => showTab("camera");
+$("tab-file").onclick = () => showTab("file");
+
+function setFile(file) {
+  const dt = new DataTransfer();
+  dt.items.add(file);
+  input.files = dt.files;
+  submitBtn.disabled = false;
+}
+function showPreview(file) {
+  $("preview").src = URL.createObjectURL(file);
+  $("preview").classList.remove("hidden");
+  $("placeholder").classList.add("hidden");
+}
+
+// ---------- Chọn file ----------
+input.addEventListener("change", () => {
+  if (!input.files[0]) return;
+  showPreview(input.files[0]);
+  submitBtn.disabled = false;
+});
+
+// ---------- Camera ----------
+function showMessage(html, withStart = true) {
+  msg.querySelector("span").innerHTML = html;
+  show($("cam-start"), withStart, "inline-flex");
+  show(msg, true);
+}
+
+async function startCamera(deviceId) {
+  stopCamera();
+  if (!cameraSupported) {
+    showMessage("Trình duyệt chỉ cho dùng camera trên <b>https</b> hoặc <b>localhost</b>.<br>Hãy dùng tab “Chọn ảnh có sẵn”.", false);
+    return;
+  }
+  showMessage("Đang bật camera…", false);
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: deviceId
+        ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 960 } }
+        : { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 960 } },
+    });
+  } catch (e) {
+    const reasons = {
+      NotAllowedError: "Bạn đã chặn quyền dùng camera. Bấm biểu tượng 🔒/camera trên thanh địa chỉ để cho phép, rồi thử lại.",
+      NotFoundError: "Không tìm thấy camera trên máy.",
+      NotReadableError: "Camera đang được ứng dụng khác dùng (Zoom, Teams…). Tắt ứng dụng đó rồi thử lại.",
+      OverconstrainedError: "Camera không hỗ trợ cấu hình yêu cầu.",
+    };
+    showMessage((reasons[e.name] || `Không bật được camera (${e.name}).`) + "<br>Có thể dùng tab “Chọn ảnh có sẵn”.");
+    return;
+  }
+  video.srcObject = stream;
+  await video.play();
+  // Camera trước (webcam laptop) hiển thị kiểu gương cho tự nhiên; ảnh chụp vẫn đúng chiều.
+  const facing = stream.getVideoTracks()[0].getSettings().facingMode;
+  video.style.transform = facing === "environment" ? "" : "scaleX(-1)";
+  video.classList.remove("hidden");
+  still.classList.add("hidden");
+  show(msg, false);
+  show($("cam-guide"), true, "block");
+  show($("cam-hint"), true, "block");
+  show($("cam-capture"), true);
+  show($("cam-retake"), false, "inline-flex");
+  submitBtn.disabled = true;
+  await listCameras();
+  if ($("live-toggle").checked) startLive();
+}
+
+function stopCamera() {
+  stopLive();
+  if (stream) stream.getTracks().forEach((t) => t.stop());  // tắt đèn camera
+  stream = null;
+  video.srcObject = null;
+  video.classList.add("hidden");
+  show($("cam-guide"), false, "block");
+  show($("cam-hint"), false, "block");
+  show($("cam-capture"), false);
+}
+
+async function listCameras() {
+  // Tên camera chỉ có sau khi người dùng đã cho phép.
+  cameras = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput");
+  show($("cam-switch"), cameras.length > 1, "inline-flex");
+}
+// "Đổi camera": chuyển sang camera kế tiếp (laptop có webcam + camera rời, điện thoại có camera trước/sau).
+$("cam-switch").onclick = () => {
+  const current = stream?.getVideoTracks()[0].getSettings().deviceId;
+  const i = cameras.findIndex((c) => c.deviceId === current);
+  startCamera(cameras[(i + 1) % cameras.length].deviceId);
+};
+
+/** Chụp khung hình hiện tại thành JPEG (cạnh dài tối đa maxSide). */
+function grabFrame(maxSide, quality) {
+  const w = video.videoWidth, h = video.videoHeight;
+  const scale = Math.min(1, maxSide / Math.max(w, h));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(w * scale);
+  canvas.height = Math.round(h * scale);
+  canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+}
+
+async function capture() {
+  if (!stream || !video.videoWidth) return;
+  const blob = await grabFrame(1280, 0.92);
+  setFile(new File([blob], `camera_${Date.now()}.jpg`, { type: "image/jpeg" }));
+  still.src = URL.createObjectURL(blob);
+  still.classList.remove("hidden");
+  stopCamera();
+  show($("cam-retake"), true, "inline-flex");
+  submitBtn.focus();
+}
+$("cam-start").onclick = () => startCamera();
+$("cam-capture").onclick = capture;
+$("cam-retake").onclick = () => startCamera();
+
+// ---------- Nhận diện trực tiếp: gửi ảnh nhỏ ~1 lần/giây, không lưu trên server ----------
+function startLive() {
+  stopLive();
+  liveTimer = setInterval(liveTick, 1000);
+  liveTick();
+}
+function stopLive() {
+  clearInterval(liveTimer);
+  liveTimer = null;
+  show(badge, false);
+}
+function renderLive(predictions) {
+  // Danh sách top-3 ở cột phải (giống component PredictionRow trong Figma).
+  $("live-list").innerHTML = predictions.map((p, i) => {
+    const pct = Math.round(p.confidence * 100), top = i === 0;
+    return `<div class="flex h-[60px] items-center gap-3 rounded-xl px-4 ${top ? "bg-brand-50 ring-2 ring-brand-600 ring-inset" : "bg-white ring-1 ring-line ring-inset"}">
+      <span class="size-[18px] shrink-0 rounded-full ${top ? "border-[5px] border-brand-600" : "border-[1.5px] border-ink-400"}"></span>
+      <div class="flex min-w-0 flex-1 flex-col gap-1.5">
+        <span class="type-strong truncate">${p.name_vi || p.label}</span>
+        <span class="h-1.5 rounded-full bg-muted"><span class="block h-1.5 rounded-full ${top ? "bg-brand-600" : "bg-ink-400"}" style="width:${Math.max(2, pct)}%"></span></span>
+      </div>
+      <span class="type-label ${top ? "text-brand-700" : "text-ink-600"}">${pct}%</span>
+    </div>`;
+  }).join("");
+}
+async function liveTick() {
+  if (liveBusy || !stream || !video.videoWidth || document.hidden) return;
+  liveBusy = true;  // chỉ một request tại một thời điểm
+  try {
+    const fd = new FormData();
+    fd.append("image", await grabFrame(384, 0.8), "frame.jpg");
+    const res = await fetch(PREDICT_URL, { method: "POST", body: fd, headers: { "X-CSRFToken": CSRF } });
+    const data = await res.json();
+    if (!res.ok) {
+      $("live-badge-text").textContent = data.error ? "Chưa có model nhận diện" : "Lỗi nhận diện";
+      badge.classList.replace("bg-brand-600", "bg-danger") || badge.classList.replace("bg-accent-500", "bg-danger");
+      show(badge, true);
+      if (res.status === 503) stopLive();
+      return;
+    }
+    if (!liveTimer) return;  // đã chụp/tắt trong lúc chờ
+    const top = data.predictions[0];
+    const ok = top.confidence >= THRESHOLD;
+    $("live-badge-text").textContent = `${top.name_vi || top.label} · ${Math.round(top.confidence * 100)}%${ok ? "" : " (chưa chắc)"}`;
+    badge.classList.remove("bg-brand-600", "bg-accent-500", "bg-danger");
+    badge.classList.add(ok ? "bg-brand-600" : "bg-accent-500");
+    show(badge, true);
+    renderLive(data.predictions);
+  } catch (e) {
+    // mất mạng tạm thời: bỏ qua, lần sau thử lại
+  } finally {
+    liveBusy = false;
+  }
+}
+$("live-toggle").onchange = (e) => (e.target.checked && stream ? startLive() : stopLive());
+
+// Phím Space để chụp khi camera đang bật.
+document.addEventListener("keydown", (e) => {
+  if (e.code === "Space" && stream && !["INPUT", "SELECT", "BUTTON"].includes(document.activeElement.tagName)) {
+    e.preventDefault();
+    capture();
+  }
+});
+// Rời trang thì tắt camera.
+window.addEventListener("pagehide", stopCamera);
+
+form.addEventListener("submit", (e) => {
+  if (!input.files.length) { e.preventDefault(); return; }
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Đang nhận diện…";
+});
+
+// Mặc định mở tab camera nếu trình duyệt hỗ trợ.
+showTab(cameraSupported ? "camera" : "file");
+if (!cameraSupported) $("tab-camera").title = "Camera trên web cần https hoặc localhost";
+</script>
+{% endblock %}
