@@ -29,3 +29,53 @@ mi_quang,Quang noodles,Mì Quảng,130,8,17,3.5,450,ước tính - cần kiểm 
 nem_chua,Fermented pork roll,Nem chua,140,16,4,6.7,100,ước tính - cần kiểm tra
 pho,Pho noodle soup,Phở,90,6,12,2,600,ước tính - cần kiểm tra
 xoi_xeo,Sticky rice with mung bean,Xôi xéo,220,5,38,5.3,200,ước tính - cần kiểm tra
+com_trang,Steamed white rice,Cơm trắng,130,2.7,28.2,0.3,200,ước tính - cần kiểm tra
+nem_ran,Fried spring rolls,Nem rán (chả giò),250,9,20,15,150,ước tính - cần kiểm tra
+com_rang,Fried rice,Cơm rang,175,5,25,6,350,ước tính - cần kiểm tra
+bun_cha,Grilled pork with rice noodles,Bún chả,170,10,18,6.5,450,ước tính - cần kiểm tra
+bun_ca,Fish noodle soup,Bún cá,90,6.5,11.5,2,550,ước tính - cần kiểm tra
+bun_moc,Pork ball noodle soup,Bún mọc,95,6.5,12,2.3,550,ước tính - cần kiểm tra
+bun_thang,Hanoi mixed noodle soup,Bún thang,85,6.5,11,1.8,550,ước tính - cần kiểm tra
+bun_ngan,Muscovy duck noodle soup,Bún ngan,95,7,11.5,2.3,550,ước tính - cần kiểm tra
+mien_ga,Chicken glass noodle soup,Miến gà,85,6,11,1.8,500,ước tính - cần kiểm tra
+mien_luon,Eel glass noodles,Miến lươn,110,7,13,3.3,450,ước tính - cần kiểm tra
+pho_cuon,Rolled pho,Phở cuốn,150,8,20,4,250,ước tính - cần kiểm tra
+pho_xao,Stir-fried pho noodles,Phở xào,180,7,24,6.3,350,ước tính - cần kiểm tra
+mi_xao,Stir-fried egg noodles,Mì xào,190,7,24,7.3,350,ước tính - cần kiểm tra
+chao_ga,Chicken congee,Cháo gà,70,5,9,1.5,500,ước tính - cần kiểm tra
+chao_suon,Pork rib congee,Cháo sườn,75,4.5,10,1.8,500,ước tính - cần kiểm tra
+xoi_gac,Gac fruit sticky rice,Xôi gấc,230,4,44,4.2,200,ước tính - cần kiểm tra
+xoi_lac,Sticky rice with peanuts,Xôi lạc,260,7,42,7,200,ước tính - cần kiểm tra
+banh_bao,Steamed pork bun,Bánh bao,230,8,35,6.5,150,ước tính - cần kiểm tra
+banh_da_cua,Crab red noodle soup,Bánh đa cua,95,6,13,2,550,ước tính - cần kiểm tra
+banh_hoi,Woven rice vermicelli,Bánh hỏi,180,9,23,5.8,300,ước tính - cần kiểm tra
+banh_uot,Plain steamed rice sheets,Bánh ướt,150,5,26,2.8,250,ước tính - cần kiểm tra
+banh_cong,Fried shrimp and mung bean cake,Bánh cống,270,9,26,14.5,120,ước tính - cần kiểm tra
+banh_trung_thu,Mooncake,Bánh trung thu,420,7,60,17,150,ước tính - cần kiểm tra
+banh_flan,Caramel custard,Bánh flan,150,5,20,5.5,100,ước tính - cần kiểm tra
+thit_kho_tau,Braised pork with eggs,Thịt kho tàu,230,15,5,17,150,ước tính - cần kiểm tra
+thit_luoc,Boiled pork belly,Thịt luộc,260,17,0,21,100,ước tính - cần kiểm tra
+suon_xao_chua_ngot,Sweet and sour pork ribs,Sườn xào chua ngọt,250,15,14,15,150,ước tính - cần kiểm tra
+gio_lua,Vietnamese pork sausage,Giò lụa (chả lụa),200,14,4,14,100,ước tính - cần kiểm tra
+nem_nuong,Grilled pork sausage,Nem nướng,250,16,8,17,150,ước tính - cần kiểm tra
+ga_luoc,Boiled chicken,Gà luộc,200,25,0,11,200,ước tính - cần kiểm tra
+ga_ran,Fried chicken,Gà rán,260,22,9,15,200,ước tính - cần kiểm tra
+vit_quay,Roast duck,Vịt quay,300,19,2,24,150,ước tính - cần kiểm tra
+com_ga,Chicken rice,Cơm gà,180,10,24,5,400,ước tính - cần kiểm tra
+ca_ri_ga,Chicken curry,Cà ri gà,150,10,8,8.5,400,ước tính - cần kiểm tra
+bo_kho,Vietnamese beef stew,Bò kho,130,11,6,7,400,ước tính - cần kiểm tra
+bo_luc_lac,Shaking beef,Bò lúc lắc,210,20,6,12,200,ước tính - cần kiểm tra
+cha_ca,Hanoi turmeric fish,Chả cá,200,18,3,13,200,ước tính - cần kiểm tra
+ca_ran,Pan-fried fish,Cá rán,220,20,4,14,150,ước tính - cần kiểm tra
+tom_rang,Stir-fried shrimp,Tôm rang,150,20,4,6,150,ước tính - cần kiểm tra
+muc_xao,Stir-fried squid,Mực xào,130,15,6,5,200,ước tính - cần kiểm tra
+trung_chien,Vietnamese omelette,Trứng chiên,200,13,1.5,15.5,100,ước tính - cần kiểm tra
+dau_phu_sot_ca_chua,Tofu in tomato sauce,Đậu phụ sốt cà chua,110,8,5,6.5,200,ước tính - cần kiểm tra
+rau_muong_xao_toi,Water spinach with garlic,Rau muống xào tỏi,60,3,4,3.7,200,ước tính - cần kiểm tra
+canh_cua,Crab soup with greens,Canh cua,35,3.5,2.5,1.2,400,ước tính - cần kiểm tra
+goi_ga,Vietnamese chicken salad,Gỏi gà,120,12,6,5.3,250,ước tính - cần kiểm tra
+goi_du_du,Green papaya salad,Gỏi đu đủ,80,3,12,2.2,200,ước tính - cần kiểm tra
+che_dau_xanh,Mung bean sweet soup,Chè đậu xanh,130,4,26,1.2,300,ước tính - cần kiểm tra
+che_ba_mau,Three-color dessert,Chè ba màu,150,3,28,3,300,ước tính - cần kiểm tra
+ca_phe_sua_da,Iced milk coffee,Cà phê sữa đá,85,1.5,15,2.2,250,ước tính - cần kiểm tra
+sinh_to_bo,Avocado smoothie,Sinh tố bơ,120,2,16,5.5,300,ước tính - cần kiểm tra

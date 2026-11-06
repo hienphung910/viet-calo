@@ -15,6 +15,7 @@ from apps.feedback.services import export_feedback
 from apps.foods.models import Food
 from apps.recognition import stats
 from apps.recognition.models import ModelVersion
+from ml.common import ROOT, read_nutrition_labels
 
 pytestmark = pytest.mark.django_db
 
@@ -237,7 +238,8 @@ class TestAdminPages:
 
     def test_seed_button(self, admin_client):
         resp = admin_client.post(reverse("admin:foods_food_seed"))
-        assert resp.status_code == 302 and Food.objects.count() == 30
+        # Số món = số dòng trong data/nutrition.csv (không cố định 30: bảng có thêm món nhập tay).
+        assert resp.status_code == 302 and Food.objects.count() == len(read_nutrition_labels(ROOT / "data" / "nutrition.csv"))
 
     def test_reload_with_next_redirects(self, admin_client, db):
         resp = admin_client.post(reverse("recognition:reload"), {"next": "/recognition/stats/"})

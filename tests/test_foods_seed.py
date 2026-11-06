@@ -14,9 +14,10 @@ def write_csv(tmp_path, body):
     return p
 
 
-def test_real_csv_is_valid_and_has_30_foods():
+def test_real_csv_is_valid_and_covers_model_classes():
     rows, warnings = load_nutrition_csv(settings.NUTRITION_CSV)
-    assert len(rows) == 30
+    # 30 món model nhận diện được + các món chỉ chọn tay (chưa có ảnh train).
+    assert len(rows) >= 30
     assert warnings == []
 
 
@@ -51,7 +52,8 @@ class TestSeedCommand:
     def test_seed_is_idempotent(self):
         call_command("seed_foods")
         call_command("seed_foods")
-        assert Food.objects.count() == 30
+        rows, _ = load_nutrition_csv(settings.NUTRITION_CSV)
+        assert Food.objects.count() == len(rows)
         pho = Food.objects.get(class_label="pho")
         assert pho.name_vi == "Phở" and pho.default_portion_g == 600
 
