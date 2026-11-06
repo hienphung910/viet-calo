@@ -6,10 +6,6 @@
   {# ---------- Ảnh ---------- #}
   <div class="flex flex-col gap-3 lg:sticky lg:top-[108px]">
     <img src="{{ MEDIA_URL }}{{ pending.image }}" alt="Ảnh món ăn" class="aspect-square w-full rounded-panel object-cover shadow-card">
-    <div class="flex justify-between gap-4 type-small text-ink-400">
-      <span>Ảnh đã xóa thông tin vị trí (GPS)</span>
-      <span class="type-caption">Model {{ pending.model_version }}</span>
-    </div>
   </div>
 
   {# ---------- Form ---------- #}
@@ -54,20 +50,30 @@
           <span class="type-label text-ink-600 [label:has(input:checked)_&]:text-brand-700">{{ c.percent }}%</span>
         </label>
       {% endfor %}
-      <label class="flex items-center gap-3 rounded-xl px-4 py-2.5 ring-1 ring-line ring-inset has-[input:checked]:bg-brand-50 has-[input:checked]:ring-2 has-[input:checked]:ring-brand-600">
-        <input type="radio" name="choice" value="other" class="peer sr-only" {% if form.choice.value == "other" %}checked{% endif %}>
-        <span class="size-[18px] shrink-0 rounded-full border-[1.5px] border-ink-400 peer-checked:border-[5px] peer-checked:border-brand-600"></span>
-        <span class="shrink-0 type-strong">Món khác</span>
-        <span class="relative min-w-0 flex-1">
-          <select name="other_food" id="other_food" class="w-full appearance-none rounded-lg bg-muted py-2 pl-3 pr-9 type-body text-ink-900 focus:outline-none focus:ring-2 focus:ring-brand-100">
-            <option value="">Chọn trong {{ all_foods|length }} món…</option>
+      {# "Món khác": gõ tên để lọc (không cần dấu). Món đã chọn nằm trong input ẩn other_food, server vẫn nhận như cũ. #}
+      <div class="flex items-center gap-3 rounded-xl px-4 py-2.5 ring-1 ring-line ring-inset has-[input:checked]:bg-brand-50 has-[input:checked]:ring-2 has-[input:checked]:ring-brand-600">
+        <label class="flex shrink-0 cursor-pointer items-center gap-3">
+          <input type="radio" name="choice" value="other" id="choice-other" class="peer sr-only" {% if form.choice.value == "other" %}checked{% endif %}>
+          <span class="size-[18px] shrink-0 rounded-full border-[1.5px] border-ink-400 peer-checked:border-[5px] peer-checked:border-brand-600"></span>
+          <span class="type-strong">Món khác</span>
+        </label>
+        <div class="relative min-w-0 flex-1">
+          <input type="hidden" name="other_food" id="other_food" value="{{ form.other_food.value|default_if_none:'' }}">
+          {% include "icons/search.svg" with cls="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-ink-400" %}
+          <input type="text" id="food-search" autocomplete="off" spellcheck="false"
+                 placeholder="Gõ tên món, ví dụ: pho xao ({{ all_foods|length }} món)"
+                 role="combobox" aria-label="Tìm món khác" aria-autocomplete="list" aria-expanded="false" aria-controls="food-list"
+                 class="w-full rounded-lg bg-muted py-2 pl-8 pr-3 type-body text-ink-900 placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-brand-100">
+          <ul id="food-list" role="listbox" aria-label="Danh sách món"
+              class="absolute inset-x-0 top-full z-20 mt-1 hidden max-h-64 overflow-y-auto rounded-xl bg-white p-1 shadow-card ring-1 ring-line">
             {% for f in all_foods %}
-              <option value="{{ f.pk }}" {% if form.other_food.value|stringformat:"s" == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.name_vi }}</option>
+              <li role="option" id="food-opt-{{ f.pk }}" data-id="{{ f.pk }}" data-name="{{ f.name_vi }}" aria-selected="false"
+                  class="cursor-pointer rounded-lg px-3 py-2 type-body text-ink-900 aria-selected:bg-brand-50 aria-selected:text-brand-700 [&.active]:bg-muted">{{ f.name_vi }}</li>
             {% endfor %}
-          </select>
-          {% include "icons/chevron-down.svg" with cls="pointer-events-none absolute right-2 top-1/2 size-[18px] -translate-y-1/2 text-ink-600" %}
-        </span>
-      </label>
+            <li id="food-empty" class="hidden px-3 py-2 type-small text-ink-400">Không tìm thấy món nào</li>
+          </ul>
+        </div>
+      </div>
       {% for e in form.other_food.errors %}<p class="type-small text-danger">{{ e }}</p>{% endfor %}
     </fieldset>
 
@@ -166,11 +172,87 @@
     set("s-kcal", food?.kcal, 0); set("s-protein", food?.p, 0); set("s-carb", food?.c, 0); set("s-fat", food?.f, 0);
   }
 
-  // Chọn trong danh sách "Món khác" thì tự tích "Món khác".
-  document.getElementById("other_food").addEventListener("change", () => {
-    form.querySelector("input[name=choice][value=other]").checked = true;
+  // ---------- Ô tìm "Món khác": gõ tên, gợi ý món có sẵn ----------
+  const search = document.getElementById("food-search");
+  const hidden = document.getElementById("other_food");
+  const list = document.getElementById("food-list");
+  const empty = document.getElementById("food-empty");
+  const otherRadio = document.getElementById("choice-other");
+  // Bỏ dấu để "pho xao" khớp "Phở xào".
+  const plain = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "d").toLowerCase().trim();
+  const options = [...list.querySelectorAll("li[role=option]")].map((li) => ({ li, id: li.dataset.id, name: li.dataset.name, key: plain(li.dataset.name) }));
+  let shown = [];   // các món đang hiện, theo thứ tự
+  let active = -1;  // món đang được trỏ bằng phím mũi tên
+
+  function setActive(i) {
+    shown.forEach((o) => o.li.classList.remove("active"));
+    active = i;
+    if (i >= 0 && shown[i]) {
+      shown[i].li.classList.add("active");
+      shown[i].li.scrollIntoView({ block: "nearest" });
+      search.setAttribute("aria-activedescendant", shown[i].li.id);
+    } else {
+      search.removeAttribute("aria-activedescendant");
+    }
+  }
+
+  function filter(text) {
+    const words = plain(text).split(/\s+/).filter(Boolean);
+    const q = words.join(" ");
+    // Mọi từ gõ vào đều phải có trong tên. Xếp hạng: tên bắt đầu bằng cụm gõ vào > tên chứa nguyên cụm đó > còn lại.
+    const hit = options.filter((o) => words.every((w) => o.key.includes(w)));
+    const rank = (o) => (o.key.startsWith(q) ? 2 : o.key.includes(q) ? 1 : 0);
+    hit.sort((a, b) => rank(b) - rank(a));
+    options.forEach((o) => o.li.classList.add("hidden"));
+    hit.forEach((o) => { o.li.classList.remove("hidden"); list.insertBefore(o.li, empty); });
+    shown = hit;
+    empty.classList.toggle("hidden", hit.length > 0);
+    setActive(words.length && hit.length ? 0 : -1);
+  }
+
+  // showAll: vừa bấm vào ô đang có món đã chọn -> hiện đủ danh sách để chọn lại.
+  function openList(showAll = false) { filter(showAll ? "" : search.value); list.classList.remove("hidden"); search.setAttribute("aria-expanded", "true"); }
+  function closeList() { list.classList.add("hidden"); search.setAttribute("aria-expanded", "false"); setActive(-1); }
+
+  function pick(o) {
+    hidden.value = o ? o.id : "";
+    options.forEach((x) => x.li.setAttribute("aria-selected", String(x === o)));
+    if (o) search.value = o.name;
+    otherRadio.checked = true;
+    closeList();
     update();
+  }
+
+  search.addEventListener("focus", () => { otherRadio.checked = true; update(); search.select(); openList(Boolean(hidden.value)); });
+  search.addEventListener("input", () => {
+    // Gõ khác tên đã chọn -> bỏ chọn, trừ khi gõ đúng y tên một món.
+    const exact = options.find((o) => o.key === plain(search.value));
+    hidden.value = exact ? exact.id : "";
+    options.forEach((x) => x.li.setAttribute("aria-selected", String(x === exact)));
+    openList();
   });
+  search.addEventListener("keydown", (e) => {
+    const isOpen = !list.classList.contains("hidden");
+    if (e.key === "ArrowDown") { e.preventDefault(); if (!isOpen) openList(); else setActive(Math.min(active + 1, shown.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setActive(Math.max(active - 1, 0)); }
+    else if (e.key === "Enter") { e.preventDefault(); if (isOpen && shown.length) pick(shown[Math.max(active, 0)]); }  // không gửi form khi đang chọn món
+    else if (e.key === "Escape") closeList();
+  });
+  // mousedown + preventDefault: chọn món mà ô gõ không bị mất focus trước.
+  list.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    const li = e.target.closest("li[role=option]");
+    if (li) pick(options.find((o) => o.li === li));
+  });
+  search.addEventListener("blur", () => {
+    closeList();
+    // Rời ô gõ mà chưa chọn món nào: nếu chỉ còn đúng 1 món khớp thì chọn luôn.
+    if (!hidden.value && search.value.trim() && shown.length === 1) pick(shown[0]);
+  });
+  // Tải lại trang sau lỗi: điền lại tên món đã chọn.
+  const initial = options.find((o) => o.id === hidden.value);
+  if (initial) { search.value = initial.name; initial.li.setAttribute("aria-selected", "true"); }
+
   form.addEventListener("input", update);
   form.addEventListener("change", update);
   update();
