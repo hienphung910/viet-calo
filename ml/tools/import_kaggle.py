@@ -1,15 +1,3 @@
-"""
-Chép dataset tải từ Kaggle vào data/raw/<class_label>/ với tên thư mục đã chuẩn hóa.
-
-Dataset Kaggle thường có dạng:
-    30VNFoods/Train/Banh beo/*.jpg
-    30VNFoods/Validate/Banh beo/*.jpg
-    30VNFoods/Test/Banh beo/*.jpg
-Script gom tất cả về data/raw/banh_beo/ (prepare_data.py sẽ tự chia lại train/val/test theo seed của mình).
-
-    python -m ml.tools.import_kaggle --src "D:/Downloads/30VNFoods"
-    python -m ml.tools.import_kaggle --src ... --rename "Banh mi=banh_mi,Com tam=com_tam"
-"""
 import argparse
 import re
 import shutil

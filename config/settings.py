@@ -96,12 +96,11 @@ LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "diary:home"
 LOGOUT_REDIRECT_URL = "accounts:login"
 
-AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 8}},
-    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
-    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
-]
+# Bản demo: không ràng buộc độ mạnh mật khẩu (chỉ cần không để trống).
+# Triển khai thật thì bật lại các validator mặc định của Django:
+#   UserAttributeSimilarityValidator, MinimumLengthValidator (min_length 8),
+#   CommonPasswordValidator, NumericPasswordValidator.
+AUTH_PASSWORD_VALIDATORS = []
 
 LANGUAGE_CODE = "vi"
 TIME_ZONE = "Asia/Ho_Chi_Minh"

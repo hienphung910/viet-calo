@@ -1,16 +1,3 @@
-"""
-Chuẩn bị dữ liệu: data/raw/<class_label>/*.jpg  ->  data/processed/{train,val,test}/<class_label>/*.jpg
-
-Các bước:
-  1. Đối chiếu tên thư mục với data/nutrition.csv (mỗi lớp phải có dòng dinh dưỡng).
-  2. Loại ảnh hỏng / quá nhỏ, loại ảnh trùng lặp (cùng nội dung file) để tránh rò rỉ train -> test.
-  3. Chia 70/15/15 theo TỪNG lớp (stratified), seed cố định -> chạy lại ra đúng kết quả cũ.
-  4. Resize cạnh ngắn về --size (mặc định 256), xoay đúng chiều theo EXIF, lưu JPEG.
-  5. In thống kê, cảnh báo lớp ít ảnh / mất cân bằng; lưu stats.json, split.csv, bad_images.txt.
-
-    python -m ml.prepare_data
-    python -m ml.prepare_data --max-per-class 50 --classes pho,banh_mi,com_tam,bun_bo_hue,goi_cuon
-"""
 import argparse
 import csv
 import hashlib
