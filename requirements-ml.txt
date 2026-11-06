@@ -15,3 +15,4 @@ scikit-learn>=1.5    # precision/recall/F1, confusion matrix
 matplotlib>=3.9      # vẽ confusion matrix, đường cong train
 PyYAML>=6.0          # đọc ml/config.yaml
 tqdm>=4.66           # thanh tiến trình
+pyarrow>=15         # đọc file parquet khi nhập ảnh từ Hugging Face (ml/tools/import_hf.py)

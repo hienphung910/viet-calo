@@ -29,7 +29,8 @@ train:
   freeze_backbone: true      # đóng băng backbone ở các epoch đầu
   freeze_epochs: 3           # số epoch chỉ train head; >= epochs nghĩa là đóng băng suốt quá trình
   label_smoothing: 0.1
-  class_weighting: false     # true: tăng trọng số loss cho lớp ít ảnh (khi dữ liệu mất cân bằng)
+  class_weighting: true      # true: tăng trọng số loss cho lớp ít ảnh (khi dữ liệu mất cân bằng)
+                             # bật vì các món lấy từ Hugging Face chỉ có ~150-250 ảnh, món cũ 500-1000 ảnh
   early_stopping_patience: 5 # dừng nếu val accuracy không tăng sau N epoch
   amp: true                  # mixed precision trên GPU (nhanh hơn, tốn ít VRAM hơn)
   num_workers: 4             # số tiến trình đọc ảnh; lỗi trên Windows thì đặt 0

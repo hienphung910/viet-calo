@@ -170,6 +170,24 @@ python -m ml.tools.import_kaggle --src "D:\Downloads\30VNFoods"
 
 Script in ra lớp nào chưa có trong `nutrition.csv`. Tên lệch thì sửa bằng `--rename "Ten goc=class_label"`.
 
+Thêm 19 món nữa (bún chả, bánh bao, bò kho, cơm rang, mì xào giòn...) từ bộ
+[vn-food-combined-2026](https://huggingface.co/datasets/jeandeanny/vn-food-combined-2026) trên Hugging Face
+(~5,7 GB, định dạng parquet). Bảng ghép tên món nằm trong `MAPPING` của `ml/tools/import_hf.py`:
+
+```powershell
+pip install pyarrow
+python -c "from huggingface_hub import snapshot_download; snapshot_download('jeandeanny/vn-food-combined-2026', repo_type='dataset', local_dir=r'D:\hf_vnfood103')"
+python -m ml.tools.import_hf --src "D:\hf_vnfood103"
+```
+
+**Nguồn dữ liệu và giấy phép.** Ảnh 19 món trên lấy từ *Vietnamese Food Combined 2026* (jeandeanny, Hugging Face),
+bản làm sạch của *VNFood 30 + 3 + 100* (Lê Anh Duy, Kaggle), gộp từ 30VNFoods, Vietnamese-foods-extended và
+100 Vietnamese Food. Giấy phép **CC BY-NC-SA 4.0**: chỉ dùng phi thương mại, phải ghi nguồn, bản phái sinh giữ
+cùng giấy phép. Model train trên dữ liệu này cũng chỉ nên dùng cho mục đích học tập/nghiên cứu.
+
+Các món trong `nutrition.csv` chưa có ảnh (phở xào, phở cuốn, nem rán, trứng chiên...) không có trong model:
+người dùng chọn tay ở ô "Món khác", ảnh họ lưu (phản hồi) sau này xuất ra bằng `ml.export_feedback` để train.
+
 Chưa có data thật mà muốn thử pipeline: `python -m ml.tools.make_toy_dataset` (tạo `data/raw_toy/`, 5 lớp ảnh hình học).
 
 ### 2. Chuẩn bị dữ liệu
