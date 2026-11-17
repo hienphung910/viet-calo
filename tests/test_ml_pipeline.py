@@ -1,7 +1,3 @@
-"""
-Test pipeline ML trên bộ ảnh tổng hợp nhỏ, chạy CPU, model rất nhỏ, không tải trọng số pretrained.
-Mục tiêu là kiểm tra code chạy đúng từ đầu đến cuối, không đo độ chính xác thật.
-"""
 import csv
 import json
 
@@ -14,8 +10,8 @@ pytest.importorskip("timm")
 
 from ml.common import load_checkpoint  # noqa: E402
 from ml.prepare_data import prepare, split_counts  # noqa: E402
-from ml.tools.import_kaggle import slugify  # noqa: E402
-from ml.tools.make_toy_dataset import make_toy_dataset  # noqa: E402
+from ml.import_kaggle import slugify  # noqa: E402
+from tests.toy_dataset import make_toy_dataset  # noqa: E402
 
 CLASSES = ["pho", "banh_mi", "com_tam"]
 
@@ -36,7 +32,6 @@ def test_load_image_applies_exif_rotation(tmp_path):
 
     from ml.common import load_image
 
-    # Ảnh lưu nằm ngang 40x20 + EXIF Orientation=6 (điện thoại chụp dọc) -> sau khi load phải là 20x40.
     exif = Image.Exif()
     exif[0x0112] = 6
     Image.new("RGB", (40, 20)).save(tmp_path / "a.jpg", exif=exif)
@@ -51,11 +46,11 @@ def test_split_counts(n, expected):
 def test_prepare_detects_bad_and_duplicate_and_is_deterministic(toy_raw, tmp_path):
     s1 = prepare(toy_raw, tmp_path / "p1", settings.NUTRITION_CSV, min_images=5, workers=2)
     s2 = prepare(toy_raw, tmp_path / "p2", settings.NUTRITION_CSV, min_images=5, workers=2)
-    assert s1["classes"]["pho"]["bad"] == 1           # broken.jpg
-    assert s1["classes"]["pho"]["duplicate"] == 1     # duplicate.jpg
+    assert s1["classes"]["pho"]["bad"] == 1
+    assert s1["classes"]["pho"]["duplicate"] == 1
     assert s1["totals"] == {"train": 42, "val": 9, "test": 9}
     read = lambda p: list(csv.reader(open(p / "split.csv", encoding="utf-8")))  # noqa: E731
-    assert read(tmp_path / "p1") == read(tmp_path / "p2")  # cùng seed -> cùng cách chia
+    assert read(tmp_path / "p1") == read(tmp_path / "p2")
 
 
 def test_prepare_rejects_class_without_nutrition(toy_raw, tmp_path):
@@ -97,8 +92,7 @@ def test_train_evaluate_register_end_to_end(toy_raw, tmp_path):
     assert meta["class_list"] == sorted(CLASSES)
     assert model(torch.zeros(1, 3, 64, 64)).shape == (1, 3)
 
-    # Đăng ký vào CSDL: model đầu tiên được tự kích hoạt.
-    from apps.recognition.models import ModelVersion
+    from app.models import ModelVersion
 
     call_command("seed_foods")
     call_command("register_model", str(out))

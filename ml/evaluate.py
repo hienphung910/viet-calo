@@ -1,15 +1,4 @@
-"""
-Đánh giá một model đã train trên tập test (hoặc val).
-
-    python -m ml.evaluate --model-dir models/20261019-1530-efficientnet_b0
-    python -m ml.evaluate --model-dir models/... --split val
-
-Kết quả trong <model-dir>/eval_<split>/:
-  metrics.json          accuracy, top-3 accuracy, macro precision/recall/F1
-  per_class.csv         precision / recall / F1 / số ảnh theo từng lớp
-  confusion_matrix.png  ma trận nhầm lẫn (chuẩn hóa theo hàng = tỷ lệ của lớp thật)
-  misclassified.csv     danh sách ảnh đoán sai, sắp theo độ tin cậy giảm dần (sai mà "tự tin" nhất lên đầu)
-"""
+"""Đánh giá một model đã train trên tập test (hoặc val)."""
 import argparse
 import csv
 from collections import Counter
@@ -41,7 +30,7 @@ def plot_confusion(cm: np.ndarray, labels: list[str], path: Path):
     ax.set_xlabel("Dự đoán")
     ax.set_ylabel("Thực tế")
     ax.set_title("Confusion matrix (tỷ lệ theo hàng)")
-    if n <= 15:  # ít lớp thì ghi số lên từng ô
+    if n <= 15:
         for i in range(n):
             for j in range(n):
                 if cm[i, j]:
@@ -62,7 +51,6 @@ def evaluate(model_dir, data_dir, split="test", batch_size=64, num_workers=0, de
     class_list = meta["class_list"]
 
     ds = ImageFolder(data_dir / split, build_transforms(meta["img_size"], train=False))
-    # Thứ tự lớp của tập dữ liệu có thể khác của model -> ánh xạ qua tên lớp.
     unknown = [c for c in ds.classes if c not in class_list]
     if unknown:
         raise SystemExit(f"Tập {split} có lớp model chưa từng học: {unknown}")
@@ -80,7 +68,7 @@ def evaluate(model_dir, data_dir, split="test", batch_size=64, num_workers=0, de
     y_true_a, y_pred_a = np.array(y_true), np.array(y_pred)
     acc = float((y_true_a == y_pred_a).mean())
     top3 = float(np.mean([t in [i for i, _ in tp] for t, tp in zip(y_true, top3s)]))
-    present = sorted(set(y_true))  # chỉ báo cáo các lớp có trong tập này
+    present = sorted(set(y_true))
     names = [class_list[i] for i in present]
     report = classification_report(y_true, y_pred, labels=present, target_names=names,
                                    output_dict=True, zero_division=0)

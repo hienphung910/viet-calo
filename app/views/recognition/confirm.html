@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}Xác nhận món · VietCalo{% endblock %}
+{% block content %}
+<form method="post" id="confirm-form" class="grid items-start gap-6 lg:grid-cols-[520px_1fr]">{% csrf_token %}
+  <div class="flex flex-col gap-3 lg:sticky lg:top-[108px]">
+    <img src="{{ MEDIA_URL }}{{ pending.image }}" alt="Ảnh món ăn" class="aspect-square w-full rounded-panel object-cover shadow-card">
+  </div>
+
+  <div class="flex flex-col gap-5">
+    <div class="card flex flex-col gap-3">
+      <h1 class="type-h3">Món ăn</h1>
+      <div class="relative rounded-2xl bg-gradient-to-r from-brand-500 via-brand-600 to-accent-500 p-[2px] shadow-[0_8px_24px_rgb(31_157_85/0.18)] transition-shadow focus-within:shadow-[0_8px_32px_rgb(31_157_85/0.35)]">
+        <div class="relative rounded-[14px] bg-gradient-to-r from-brand-50 via-white to-accent-50">
+          <input type="hidden" name="food" id="food" value="{{ form.food.value|default_if_none:'' }}">
+          <span class="pointer-events-none absolute left-2.5 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-card">
+            {% include "icons/sparkles.svg" with cls="size-5" %}
+          </span>
+          <input type="text" id="food-search" autocomplete="off" spellcheck="false"
+                 placeholder="Gõ tên món ({{ all_foods|length }} món)"
+                 role="combobox" aria-label="Món ăn" aria-autocomplete="list" aria-expanded="false" aria-controls="food-list"
+                 class="w-full rounded-[14px] bg-transparent py-4 pl-16 pr-11 type-h2 text-ink-900 placeholder:text-[15px] placeholder:font-normal placeholder:text-ink-400 focus:outline-none">
+          {% include "icons/pencil.svg" with cls="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-ink-400" %}
+        </div>
+        <ul id="food-list" role="listbox" aria-label="Danh sách món"
+            class="absolute inset-x-0 top-full z-20 mt-2 hidden max-h-64 overflow-y-auto rounded-xl bg-white p-1 shadow-card ring-1 ring-line">
+          {% for f in all_foods %}
+            <li role="option" id="food-opt-{{ f.pk }}" data-id="{{ f.pk }}" data-name="{{ f.name_vi }}" aria-selected="false"
+                class="cursor-pointer rounded-lg px-3 py-2 type-body text-ink-900 aria-selected:bg-brand-50 aria-selected:text-brand-700 [&.active]:bg-muted">{{ f.name_vi }}</li>
+          {% endfor %}
+          <li id="food-empty" class="hidden px-3 py-2 type-small text-ink-400">Không tìm thấy món nào</li>
+        </ul>
+      </div>
+      {% if not predicted %}<p class="type-small text-accent-600">AI đoán là “{{ pending.label }}” nhưng món này chưa có dữ liệu dinh dưỡng, hãy gõ tên để chọn món.</p>{% endif %}
+      {% for e in form.food.errors %}<p class="type-small text-danger">{{ e }}</p>{% endfor %}
+    </div>
+
+    <fieldset class="card flex flex-col gap-3">
+      <legend class="sr-only">Khẩu phần và bữa</legend>
+      <div class="flex items-center justify-between">
+        <h2 class="type-h3" aria-hidden="true">Khẩu phần</h2>
+        <span id="default-portion" class="type-small text-ink-400"></span>
+      </div>
+      <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        {% for value, label in form.fields.portion_choice.choices %}
+          <label class="flex cursor-pointer flex-col items-center gap-0.5 rounded-xl bg-white px-4 py-3 ring-1 ring-line ring-inset has-[input:checked]:bg-brand-50 has-[input:checked]:text-brand-700 has-[input:checked]:ring-2 has-[input:checked]:ring-brand-600">
+            <input type="radio" name="portion_choice" value="{{ value }}" class="sr-only" {% if form.portion_choice.value == value %}checked{% endif %}>
+            <span class="type-label">{% if value == "custom" %}Tự nhập{% else %}{{ label }}{% endif %}</span>
+            <span class="type-caption text-ink-600 [label:has(input:checked)_&]:text-brand-700" data-grams-for="{{ value }}">… g</span>
+          </label>
+        {% endfor %}
+      </div>
+      <div id="custom-grams" class="hidden">
+        <input type="number" name="portion_g" id="portion_g" min="1" max="3000" step="1" placeholder="Nhập số gram"
+               value="{{ form.portion_g.value|default_if_none:'' }}" class="field">
+      </div>
+      {% for e in form.portion_g.errors %}<p class="type-small text-danger">{{ e }}</p>{% endfor %}
+      <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="Bữa">
+        {% for value, label in form.fields.meal_type.choices %}
+          <label class="cursor-pointer rounded-full bg-muted px-3.5 py-1.5 type-label text-ink-600 has-[input:checked]:bg-ink-900 has-[input:checked]:text-white has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-100">
+            <input type="radio" name="meal_type" value="{{ value }}" class="sr-only" {% if form.meal_type.value == value %}checked{% endif %}>{{ label }}
+          </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <div id="summary" class="flex flex-wrap items-center justify-between gap-4 rounded-card bg-ink-900 p-6 text-white">
+      <div>
+        <p class="type-caption text-ink-400">Ước tính cho <span id="s-grams">–</span> g</p>
+        <p class="flex items-baseline gap-1.5"><span id="s-kcal" class="type-num-xl">–</span><span class="type-strong text-ink-400">kcal</span></p>
+      </div>
+      <div class="flex gap-5 text-center">
+        {% for key, name in macro_names %}
+          <div class="flex flex-col items-center gap-0.5">
+            <span class="size-2 rounded-full bg-{{ key }}"></span>
+            <span class="type-h3"><span id="s-{{ key }}">–</span> g</span>
+            <span class="type-caption text-ink-400">{{ name }}</span>
+          </div>
+        {% endfor %}
+      </div>
+      <p class="w-full type-caption text-ink-400">Chỉ là ước tính: khối lượng thật không đo được từ ảnh.</p>
+    </div>
+
+    <label class="flex cursor-pointer items-center gap-2.5 type-body text-ink-600">
+      <input type="checkbox" name="consent" class="peer sr-only" {% if form.consent.value %}checked{% endif %}>
+      <span class="flex size-5 shrink-0 items-center justify-center rounded-lg bg-white text-transparent ring-1 ring-ink-400 ring-inset peer-checked:bg-brand-600 peer-checked:text-white peer-checked:ring-0 peer-focus-visible:ring-2 peer-focus-visible:ring-brand-100">
+        {% include "icons/check.svg" with cls="size-3.5" %}
+      </span>
+      {{ form.fields.consent.label }}
+    </label>
+
+    <button class="btn btn-primary w-full">{% include "icons/check.svg" %}Lưu vào nhật ký</button>
+  </div>
+</form>
+{{ foods_data|json_script:"foods-data" }}
+{{ multipliers|json_script:"multipliers" }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const foods = JSON.parse(document.getElementById("foods-data").textContent);
+  const mult = JSON.parse(document.getElementById("multipliers").textContent);
+  const form = document.getElementById("confirm-form");
+  const gramsInput = document.getElementById("portion_g");
+  const fmt = (n, d = 0) => n.toLocaleString("vi-VN", { maximumFractionDigits: d });
+
+  const selectedFood = () => foods[document.getElementById("food").value] || null;
+
+  function update() {
+    const food = selectedFood();
+    const pc = form.querySelector("input[name=portion_choice]:checked")?.value;
+    document.getElementById("custom-grams").classList.toggle("hidden", pc !== "custom");
+    document.getElementById("default-portion").textContent = food ? `Mặc định: ${fmt(food.portion)} g / phần` : "";
+    for (const [key, m] of Object.entries(mult)) {
+      form.querySelector(`[data-grams-for=${key}]`).textContent = food ? `${fmt(food.portion * m)} g` : "… g";
+    }
+    let grams = null;
+    if (food && pc === "custom") grams = parseFloat(gramsInput.value) || null;
+    else if (food && pc) grams = food.portion * mult[pc];
+    const set = (id, v, d) => (document.getElementById(id).textContent = grams ? fmt(v * grams / 100, d) : "–");
+    document.getElementById("s-grams").textContent = grams ? fmt(grams) : "–";
+    set("s-kcal", food?.kcal, 0); set("s-protein", food?.p, 0); set("s-carb", food?.c, 0); set("s-fat", food?.f, 0);
+  }
+
+  const search = document.getElementById("food-search");
+  const hidden = document.getElementById("food");
+  const list = document.getElementById("food-list");
+  const empty = document.getElementById("food-empty");
+  const plain = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "d").toLowerCase().trim();
+  const options = [...list.querySelectorAll("li[role=option]")].map((li) => ({ li, id: li.dataset.id, name: li.dataset.name, key: plain(li.dataset.name) }));
+  let shown = [];
+  let active = -1;
+
+  function setActive(i) {
+    shown.forEach((o) => o.li.classList.remove("active"));
+    active = i;
+    if (i >= 0 && shown[i]) {
+      shown[i].li.classList.add("active");
+      shown[i].li.scrollIntoView({ block: "nearest" });
+      search.setAttribute("aria-activedescendant", shown[i].li.id);
+    } else {
+      search.removeAttribute("aria-activedescendant");
+    }
+  }
+
+  function filter(text) {
+    const words = plain(text).split(/\s+/).filter(Boolean);
+    const q = words.join(" ");
+    const hit = options.filter((o) => words.every((w) => o.key.includes(w)));
+    const rank = (o) => (o.key.startsWith(q) ? 2 : o.key.includes(q) ? 1 : 0);
+    hit.sort((a, b) => rank(b) - rank(a));
+    options.forEach((o) => o.li.classList.add("hidden"));
+    hit.forEach((o) => { o.li.classList.remove("hidden"); list.insertBefore(o.li, empty); });
+    shown = hit;
+    empty.classList.toggle("hidden", hit.length > 0);
+    setActive(words.length && hit.length ? 0 : -1);
+  }
+
+  function openList(showAll = false) { filter(showAll ? "" : search.value); list.classList.remove("hidden"); search.setAttribute("aria-expanded", "true"); }
+  function closeList() { list.classList.add("hidden"); search.setAttribute("aria-expanded", "false"); setActive(-1); }
+
+  function pick(o) {
+    hidden.value = o ? o.id : "";
+    options.forEach((x) => x.li.setAttribute("aria-selected", String(x === o)));
+    if (o) search.value = o.name;
+    closeList();
+    update();
+  }
+
+  search.addEventListener("focus", () => { search.select(); openList(Boolean(hidden.value)); });
+  search.addEventListener("input", () => {
+    const exact = options.find((o) => o.key === plain(search.value));
+    hidden.value = exact ? exact.id : "";
+    options.forEach((x) => x.li.setAttribute("aria-selected", String(x === exact)));
+    openList();
+  });
+  search.addEventListener("keydown", (e) => {
+    const isOpen = !list.classList.contains("hidden");
+    if (e.key === "ArrowDown") { e.preventDefault(); if (!isOpen) openList(); else setActive(Math.min(active + 1, shown.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setActive(Math.max(active - 1, 0)); }
+    else if (e.key === "Enter") { e.preventDefault(); if (isOpen && shown.length) pick(shown[Math.max(active, 0)]); }
+    else if (e.key === "Escape") closeList();
+  });
+  list.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    const li = e.target.closest("li[role=option]");
+    if (li) pick(options.find((o) => o.li === li));
+  });
+  search.addEventListener("blur", () => {
+    closeList();
+    if (!hidden.value && search.value.trim() && shown.length === 1) pick(shown[0]);
+  });
+  const initial = options.find((o) => o.id === hidden.value);
+  if (initial) { search.value = initial.name; initial.li.setAttribute("aria-selected", "true"); }
+
+  form.addEventListener("input", update);
+  form.addEventListener("change", update);
+  update();
+</script>
+{% endblock %}

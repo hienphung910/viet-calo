@@ -1,18 +1,4 @@
-"""
-Train model nhận diện món ăn bằng transfer learning (timm, pretrained ImageNet).
-
-    python -m ml.train                                  # dùng ml/config.yaml
-    python -m ml.train --epochs 30 --backbone mobilenetv3_large_100
-    python -m ml.train --register --activate            # train xong ghi vào bảng model_versions và dùng luôn
-
-Chiến lược 2 pha:
-  - Pha 1 (freeze_epochs epoch đầu): đóng băng backbone, chỉ train lớp phân loại mới (head).
-    Head mới khởi tạo ngẫu nhiên; nếu mở backbone ngay, gradient lớn từ head sẽ phá trọng số pretrained.
-  - Pha 2: mở toàn bộ, backbone học với lr nhỏ hơn (backbone_lr_mult) để tinh chỉnh nhẹ.
-
-Kết quả: models/<version>/ gồm model.pt (checkpoint tốt nhất theo val accuracy), class_list.json,
-config.yaml, history.csv, training_curves.png, metrics.json, và eval_test/ (nếu có tập test).
-"""
+"""Train model nhận diện món ăn bằng transfer learning (timm, pretrained ImageNet)."""
 import argparse
 import copy
 import csv
@@ -42,14 +28,12 @@ def set_backbone_trainable(model: nn.Module, trainable: bool):
 
 
 def freeze_batchnorm_stats(model: nn.Module):
-    """Khi backbone đóng băng, giữ nguyên thống kê BatchNorm đã học trên ImageNet."""
     for m in model.modules():
         if isinstance(m, nn.modules.batchnorm._BatchNorm):
             m.eval()
 
 
 def run_epoch(model, loader, criterion, device, optimizer=None, scaler=None, use_amp=False, desc=""):
-    """Một vòng qua loader. optimizer=None nghĩa là chế độ đánh giá. Trả về (loss, acc, top3)."""
     training = optimizer is not None
     total = correct = correct3 = 0
     loss_sum = 0.0
@@ -76,7 +60,7 @@ def run_epoch(model, loader, criterion, device, optimizer=None, scaler=None, use
 def plot_history(history: list[dict], path: Path):
     import matplotlib
 
-    matplotlib.use("Agg")  # vẽ ra file, không cần cửa sổ
+    matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     ep = [h["epoch"] for h in history]
@@ -97,8 +81,6 @@ def make_loader(ds, batch_size, shuffle, num_workers, device):
     return DataLoader(
         ds, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers,
         pin_memory=device.type == "cuda", persistent_workers=num_workers > 0,
-        # Train: bỏ batch cuối bị lẻ. Batch quá nhỏ làm BatchNorm không ổn định, và kích thước lạ
-        # khiến cuDNN phải chọn lại kernel (đo được ~12 giây mỗi lần trên RTX 3060).
         drop_last=shuffle and len(ds) > batch_size,
     )
 
@@ -115,7 +97,7 @@ def train(cfg: dict, version: str | None = None, device: torch.device | None = N
     val_ds = ImageFolder(data_dir / "val", build_transforms(img_size, False))
     if train_ds.classes != val_ds.classes:
         raise SystemExit("Tập train và val có danh sách lớp khác nhau. Chạy lại prepare_data.py.")
-    class_list = train_ds.classes  # ImageFolder sắp xếp theo tên -> thứ tự cố định = chỉ số output
+    class_list = train_ds.classes
     log(f"Thiết bị: {device}{' (' + torch.cuda.get_device_name(0) + ')' if device.type == 'cuda' else ''}")
     log(f"{len(class_list)} lớp | train {len(train_ds)} ảnh | val {len(val_ds)} ảnh")
 
@@ -126,20 +108,22 @@ def train(cfg: dict, version: str | None = None, device: torch.device | None = N
     model = build_model(mcfg["backbone"], len(class_list), mcfg.get("pretrained", True), mcfg.get("drop_rate", 0))
     model.to(device)
 
-    # Trọng số lớp (tùy chọn): lớp ít ảnh được tính loss nặng hơn.
     weight = None
     if tcfg.get("class_weighting"):
-        counts = torch.bincount(torch.tensor(train_ds.targets), minlength=len(class_list)).float()
+        targets = torch.tensor(train_ds.targets)
+        counts = torch.bincount(targets, minlength=len(class_list)).float()
         weight = (counts.sum() / (len(class_list) * counts.clamp(min=1))).to(device)
-    criterion = nn.CrossEntropyLoss(weight=weight, label_smoothing=tcfg.get("label_smoothing", 0))
+    smoothing = tcfg.get("label_smoothing", 0)
+    criterion = nn.CrossEntropyLoss(weight=weight, label_smoothing=smoothing)
 
     head_params = list(model.get_classifier().parameters())
     head_ids = {id(p) for p in head_params}
     backbone_params = [p for p in model.parameters() if id(p) not in head_ids]
+    lr = tcfg["lr"]
     optimizer = torch.optim.AdamW(
         [
-            {"params": backbone_params, "lr": tcfg["lr"] * tcfg.get("backbone_lr_mult", 0.1)},
-            {"params": head_params, "lr": tcfg["lr"]},
+            {"params": backbone_params, "lr": lr * tcfg.get("backbone_lr_mult", 0.1)},
+            {"params": head_params, "lr": lr},
         ],
         weight_decay=tcfg.get("weight_decay", 1e-4),
     )
@@ -177,21 +161,16 @@ def train(cfg: dict, version: str | None = None, device: torch.device | None = N
             "train_acc": round(tr_acc, 4), "val_loss": round(va_loss, 4), "val_acc": round(va_acc, 4),
             "val_top3": round(va_top3, 4),
         })
-        # Tốt hơn = val accuracy cao hơn; bằng nhau thì chọn val loss thấp hơn.
-        # Chỉ xét accuracy thì checkpoint đầu tiên đạt mức đó được giữ mãi, dù các epoch sau
-        # tự tin hơn (loss thấp hơn). Mà web dùng ngưỡng độ tin cậy, nên điều này quan trọng.
         improved = va_acc > best_acc or (va_acc == best_acc and va_loss < best_loss)
         log(f"epoch {epoch:>3}/{epochs} {'[freeze]' if frozen else '        '} "
             f"train loss {tr_loss:.3f} acc {tr_acc:.3f} | val loss {va_loss:.3f} acc {va_acc:.3f} "
             f"top3 {va_top3:.3f}{'  *best' if improved else ''}")
 
         if improved:
-            # Chỉ giữ checkpoint tốt nhất theo val accuracy.
             best_acc, best_loss, best_top3, best_epoch, bad_epochs = va_acc, va_loss, va_top3, epoch, 0
             save_checkpoint(out / "model.pt", model, backbone=mcfg["backbone"], class_list=class_list,
                             img_size=img_size, extra={"epoch": epoch, "val_accuracy": va_acc})
         elif not frozen:
-            # Không tính patience trong pha đóng băng: model còn đang "khởi động".
             bad_epochs += 1
             if patience and bad_epochs >= patience:
                 log(f"Early stopping: val accuracy không tăng sau {patience} epoch.")
@@ -239,7 +218,6 @@ def train(cfg: dict, version: str | None = None, device: torch.device | None = N
 
 
 def register(model_dir: Path, activate: bool):
-    """Gọi lệnh Django để ghi vào bảng model_versions (script ML không phụ thuộc trực tiếp vào Django)."""
     cmd = [sys.executable, str(ROOT / "manage.py"), "register_model", str(model_dir)]
     if activate:
         cmd.append("--activate")
@@ -278,7 +256,6 @@ def main():
             node[keys[-1]] = val
     if args.no_pretrained:
         cfg["model"]["pretrained"] = False
-    # Đường dẫn tương đối trong config tính từ thư mục gốc dự án.
     for key in ("data_dir", "output_dir"):
         if not Path(cfg[key]).is_absolute():
             cfg[key] = str(ROOT / cfg[key])
@@ -288,5 +265,5 @@ def main():
         register(out, args.activate)
 
 
-if __name__ == "__main__":  # bắt buộc trên Windows khi DataLoader dùng num_workers > 0
+if __name__ == "__main__":
     main()

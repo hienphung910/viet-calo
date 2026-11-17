@@ -1,10 +1,9 @@
-"""Ảnh trong media/ chỉ người có quyền mới xem được (kể cả khi DEBUG=False)."""
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 
-from apps.diary.services import create_meal_log
+from app.services.meal_log import create_meal_log
 
 pytestmark = pytest.mark.django_db
 
@@ -42,7 +41,7 @@ def test_anonymous_and_other_user_get_404(client, meal_image):
 def test_staff_can_view_feedback(client, user):
     name = default_storage.save("feedback/2026/10/f.jpg", ContentFile(b"fb"))
     client.force_login(user)
-    assert client.get(f"/media/{name}").status_code == 404  # người dùng thường không xem ảnh feedback
+    assert client.get(f"/media/{name}").status_code == 404
     client.force_login(make_user("admin@example.com", is_staff=True))
     assert client.get(f"/media/{name}").status_code == 200
 

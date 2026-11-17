@@ -1,0 +1,111 @@
+{% extends "base.html" %}{% load vn %}
+{% block title %}{% if is_today %}Hôm nay{% else %}{{ date|date:"d/m/Y" }}{% endif %} · VietCalo{% endblock %}
+{% block content %}
+<div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <p class="type-label text-brand-700">{{ date|date:"l, j" }} tháng {{ date|date:"n" }}</p>
+    {% if is_today %}
+      <h1 class="type-h1">{{ greeting }}, {{ display_name }}!</h1>
+      <p class="type-body text-ink-600">
+        {% if totals.count %}Hôm nay bạn đã ăn {{ totals.count }} món, tổng {{ totals.kcal|num }} kcal.
+        {% else %}Hôm nay bạn ăn gì? Chụp món đầu tiên để bắt đầu.{% endif %}
+      </p>
+    {% else %}
+      <h1 class="type-h1">Nhật ký ngày {{ date|date:"d/m/Y" }}</h1>
+      <p class="type-body text-ink-600">{{ totals.count }} món · {{ totals.kcal|num }} kcal</p>
+    {% endif %}
+  </div>
+  <div class="flex flex-wrap items-center gap-3">
+    <div class="flex items-center gap-1 rounded-full bg-white p-1.5 ring-1 ring-line">
+      <a href="?date={{ prev_day|date:'Y-m-d' }}" class="rounded-full p-1 text-ink-600 hover:bg-page" aria-label="Ngày trước">{% include "icons/chevron-left.svg" %}</a>
+      <form method="get" class="relative">
+        <label class="block cursor-pointer px-3 type-strong" onclick="this.querySelector('input').showPicker?.()">
+          {% if is_today %}Hôm nay{% else %}{{ date|date:"d/m" }}{% endif %}
+          <input type="date" name="date" value="{{ date|date:'Y-m-d' }}" onchange="this.form.submit()" class="absolute inset-0 opacity-0" aria-label="Chọn ngày" tabindex="-1">
+        </label>
+      </form>
+      <a href="?date={{ next_day|date:'Y-m-d' }}" class="rounded-full p-1 text-ink-600 hover:bg-page" aria-label="Ngày sau">{% include "icons/chevron-right.svg" %}</a>
+    </div>
+    <a href="{% url 'diary:meal_add' %}?date={{ date|date:'Y-m-d' }}" class="btn btn-secondary">{% include "icons/plus.svg" %}Thêm thủ công</a>
+  </div>
+</div>
+
+<div class="mb-6 grid gap-6 lg:grid-cols-[1fr_340px]">
+  <section class="card flex flex-col items-center gap-10 sm:flex-row" aria-label="Calo trong ngày">
+    <div class="flex size-[200px] shrink-0 flex-col items-center justify-center rounded-full border-[16px] border-brand-600">
+      {% include "icons/flame.svg" with cls="size-[22px] text-accent-500" %}
+      <p class="type-num-xl">{{ totals.kcal|num }}</p>
+      <p class="type-small text-ink-600">kcal</p>
+    </div>
+    <div class="flex w-full flex-1 flex-col gap-[18px]">
+      <h2 class="type-h3">Dinh dưỡng trong ngày</h2>
+      {% for m in macros %}
+        <div>
+          <div class="mb-2 flex items-center justify-between">
+            <span class="flex items-center gap-1.5 type-caption text-ink-600"><span class="size-2 rounded-full bg-{{ m.key }}"></span>{{ m.name }}</span>
+            <span class="type-label">{{ m.grams }} g</span>
+          </div>
+          <div class="h-1.5 rounded-full bg-muted"><div class="h-1.5 rounded-full bg-{{ m.key }}" style="width: {% if totals.count %}{{ m.percent }}{% else %}0{% endif %}%"></div></div>
+        </div>
+      {% endfor %}
+      <p class="type-small text-ink-400">
+        {% if totals.count %}Năng lượng: {% for m in macros %}{{ m.percent }}% {{ m.name|lower }}{% if not forloop.last %} · {% endif %}{% endfor %}
+        {% else %}Chưa có món nào trong ngày.{% endif %}
+      </p>
+    </div>
+  </section>
+
+  <section class="flex flex-col gap-3.5 rounded-card bg-gradient-to-br from-brand-600 to-brand-700 p-6 shadow-card">
+    <span class="flex size-12 items-center justify-center rounded-xl bg-white/15 text-white">{% include "icons/camera.svg" with cls="size-[26px]" %}</span>
+    <h2 class="type-h2 text-white">Quét món bằng camera</h2>
+    <p class="type-body text-brand-100">Đưa món ăn vào khung hình, AI nhận diện ngay và tính calories cho bạn.</p>
+    <a href="{% url 'recognition:upload' %}" class="btn btn-accent mt-auto self-start">{% include "icons/camera.svg" %}Bắt đầu quét</a>
+  </section>
+</div>
+
+<section class="card" aria-label="Các bữa ăn">
+  <div class="flex items-center justify-between">
+    <h2 class="type-h2">Các bữa {% if is_today %}hôm nay{% else %}trong ngày{% endif %}</h2>
+    {% if totals.count %}<span class="type-label text-ink-600">{{ totals.count }} món · {{ totals.kcal|num }} kcal</span>{% endif %}
+  </div>
+
+  {% for g in groups %}
+    <div class="mt-3 flex justify-between pt-3 type-caption uppercase text-ink-400">
+      <span>{{ g.label }}</span><span class="normal-case">{{ g.kcal|num }} kcal</span>
+    </div>
+    {% for log in g.logs %}
+      <div class="group flex items-center gap-3.5 rounded-xl p-3 hover:bg-page">
+        {% if log.image_path %}
+          <img src="{{ log.image_path.url }}" alt="{{ log.food.name_vi }}" class="size-14 shrink-0 rounded-xl object-cover">
+        {% else %}
+          <span class="flex size-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent-50 to-[#FED7AA] text-accent-500">{% include "icons/image.svg" with cls="size-[22px]" %}</span>
+        {% endif %}
+        <div class="min-w-0 flex-1">
+          <p class="type-h3 truncate">{{ log.food.name_vi }}</p>
+          <p class="type-small text-ink-600">
+            {{ log.portion_g|floatformat:0 }} g · {{ log.eaten_at|time:"H:i" }}
+            {% if not log.image_path %}· thêm thủ công{% endif %}
+          </p>
+        </div>
+        <div class="flex gap-1 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+          <a href="{% url 'diary:meal_edit' log.pk %}" class="rounded-lg p-2 text-ink-400 hover:bg-white hover:text-ink-900" aria-label="Sửa {{ log.food.name_vi }}">{% include "icons/pencil.svg" with cls="size-4" %}</a>
+          <a href="{% url 'diary:meal_delete' log.pk %}" class="rounded-lg p-2 text-ink-400 hover:bg-white hover:text-danger" aria-label="Xóa {{ log.food.name_vi }}">{% include "icons/trash.svg" with cls="size-4" %}</a>
+        </div>
+        <div class="w-16 text-right">
+          <p class="type-num-l">{{ log.kcal|num }}</p>
+          <p class="type-caption text-ink-400">kcal</p>
+        </div>
+      </div>
+    {% endfor %}
+  {% empty %}
+    <div class="flex flex-col items-center gap-3 py-10 text-center">
+      <span class="flex size-14 items-center justify-center rounded-full bg-brand-50 text-brand-600">{% include "icons/sparkles.svg" with cls="size-7" %}</span>
+      <p class="type-body text-ink-600">Chưa có món nào trong ngày này.</p>
+      <div class="flex gap-2">
+        <a href="{% url 'recognition:upload' %}" class="btn btn-primary">{% include "icons/camera.svg" %}Quét món</a>
+        <a href="{% url 'diary:meal_add' %}?date={{ date|date:'Y-m-d' }}" class="btn btn-secondary">{% include "icons/plus.svg" %}Thêm thủ công</a>
+      </div>
+    </div>
+  {% endfor %}
+</section>
+{% endblock %}

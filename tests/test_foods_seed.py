@@ -2,8 +2,8 @@ import pytest
 from django.conf import settings
 from django.core.management import CommandError, call_command
 
-from apps.foods.csv_loader import NutritionCSVError, load_nutrition_csv
-from apps.foods.models import Food
+from app.services.nutrition_csv import NutritionCSVError, load_nutrition_csv
+from app.models import Food
 
 HEADER = "class_label,name,name_vi,kcal_per_100g,protein,carb,fat,default_portion_g\n"
 
@@ -16,7 +16,6 @@ def write_csv(tmp_path, body):
 
 def test_real_csv_is_valid_and_covers_model_classes():
     rows, warnings = load_nutrition_csv(settings.NUTRITION_CSV)
-    # 30 món model nhận diện được + các món chỉ chọn tay (chưa có ảnh train).
     assert len(rows) >= 30
     assert warnings == []
 

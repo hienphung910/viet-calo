@@ -7,8 +7,8 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.core.management import call_command
 
-from apps.diary.services import create_meal_log
-from apps.feedback.models import FeedbackImage
+from app.services.meal_log import create_meal_log
+from app.models import FeedbackImage
 
 pytestmark = pytest.mark.django_db
 
@@ -32,7 +32,7 @@ def test_cleanup_removes_only_old_orphans(user, pho, media):
     fb_used = save("feedback/2026/10/fb.jpg")
     FeedbackImage.objects.create(true_food=pho, image_path=fb_used)
     orphan_old = save("uploads/2026/09/old.jpg")
-    orphan_new = save("uploads/2026/10/new.jpg", age_hours=1)  # có thể đang ở trang xác nhận
+    orphan_new = save("uploads/2026/10/new.jpg", age_hours=1)
     fb_orphan = save("feedback/2026/10/lost.jpg")
 
     out = io.StringIO()
@@ -42,7 +42,7 @@ def test_cleanup_removes_only_old_orphans(user, pho, media):
     call_command("cleanup_uploads", stdout=io.StringIO())
     assert not default_storage.exists(orphan_old) and not default_storage.exists(fb_orphan)
     assert default_storage.exists(used) and default_storage.exists(fb_used) and default_storage.exists(orphan_new)
-    assert not (media / "uploads" / "2026" / "09").exists()  # thư mục rỗng được dọn
+    assert not (media / "uploads" / "2026" / "09").exists()
 
 
 def test_cleanup_without_media_folder():

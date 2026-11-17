@@ -1,16 +1,19 @@
+# Môi trường, cấu hình riêng
 .venv/
+.env
+.dev_login.txt
+.claude/
+
+# File sinh ra khi chạy
 __pycache__/
 *.pyc
-.env
-db.sqlite3
+.pytest_cache/
 /staticfiles/
+db.sqlite3
+
+# Dữ liệu lớn: ảnh, model đã train (chia sẻ riêng, không đưa lên git)
 /media/
 /models/
 /data/raw/
 /data/processed/
-/ml/outputs/
-.pytest_cache/
-/data/raw_toy/
-/data/processed_toy/
-/.dev_login.txt
-/backups/
+*.zip

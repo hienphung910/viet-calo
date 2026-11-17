@@ -1,3 +1,8 @@
+# Cài PyTorch TRƯỚC (cài thẳng từ PyPI trên Windows sẽ ra bản chỉ chạy CPU):
+#   máy có GPU NVIDIA:  pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+#   máy không có GPU:   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# rồi: pip install -r requirements.txt
+
 # --- Web ---
 Django>=5.2,<5.3          # bản LTS
 django-environ>=0.11      # đọc cấu hình từ file .env (DATABASE_URL, SECRET_KEY...)
@@ -6,7 +11,15 @@ mysqlclient>=2.2          # driver MySQL chính thức của Django (có sẵn w
 whitenoise>=6.7           # phục vụ file tĩnh (CSS/JS của admin) khi DEBUG=False
 waitress>=3.0             # web server viết bằng Python, chạy được trên Windows (dùng khi demo)
 
-# Web cần thêm torch + timm để dự đoán: cài theo hướng dẫn trong requirements-ml.txt
+# --- Model (web dùng để dự đoán, ml/ dùng để train) ---
+torch>=2.4
+torchvision>=0.19
+timm>=1.0                 # model pretrained (EfficientNet, MobileNetV3...)
+scikit-learn>=1.5         # precision/recall/F1, confusion matrix
+matplotlib>=3.9           # vẽ confusion matrix, đường cong train
+PyYAML>=6.0               # đọc ml/config.yaml
+tqdm>=4.66                # thanh tiến trình
+pyarrow>=15               # đọc file parquet khi nhập ảnh từ Hugging Face (ml/import_hf.py)
 
 # --- Test ---
 pytest>=8

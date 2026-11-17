@@ -1,13 +1,12 @@
-"""Kiểm tra các ràng buộc toàn vẹn ở tầng CSDL (khóa ngoại, CHECK, UNIQUE)."""
 from datetime import datetime, timezone as dt_timezone
 
 import pytest
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 
-from apps.diary.models import MealLog
-from apps.feedback.models import FeedbackImage
-from apps.recognition.models import ModelVersion
+from app.models import MealLog
+from app.models import FeedbackImage
+from app.models import ModelVersion
 
 pytestmark = pytest.mark.django_db
 
@@ -20,7 +19,7 @@ def make_log(user, food, **kw):
 class TestModelVersion:
     def test_only_one_active_model(self, make_model_version):
         make_model_version("v1", is_active=True)
-        make_model_version("v2")  # nhiều dòng không active thì được
+        make_model_version("v2")
         make_model_version("v3")
         with pytest.raises(IntegrityError), transaction.atomic():
             make_model_version("v4", is_active=True)
@@ -36,7 +35,6 @@ class TestModelVersion:
 
 class TestMealLog:
     def test_eaten_date_uses_vietnam_timezone(self, user, pho):
-        # 20:00 UTC ngày 18/10 = 03:00 sáng 19/10 giờ VN.
         log = make_log(user, pho, eaten_at=datetime(2026, 10, 18, 20, 0, tzinfo=dt_timezone.utc))
         assert str(log.eaten_date) == "2026-10-19"
 
@@ -57,7 +55,7 @@ class TestMealLog:
         log.refresh_from_db()
         assert log.model_version is None
 
-    @pytest.mark.parametrize("field, value", [("portion_g", 0), ("kcal", -5), ("confidence", 1.5)])
+    @pytest.mark.parametrize("field, value", [("portion_g", 0), ("kcal", -5)])
     def test_check_constraints(self, user, pho, field, value):
         with pytest.raises(IntegrityError), transaction.atomic():
             make_log(user, pho, **{field: value})
@@ -71,7 +69,7 @@ class TestFeedbackImage:
             )
 
     def test_feedback_survives_meal_log_deletion(self, user, pho):
-        log = make_log(user, pho, predicted_label="bun_bo_hue", was_corrected=True)
+        log = make_log(user, pho, predicted_label="bun_bo_hue")
         fb = FeedbackImage.objects.create(
             meal_log=log, true_food=pho, image_path="feedback/x.jpg", predicted_label="bun_bo_hue"
         )

@@ -1,16 +1,16 @@
 import pytest
 from django.utils import timezone
 
-from apps.accounts.models import User
-from apps.foods.models import Food
-from apps.recognition.models import ModelVersion
+from app.models import User
+from app.models import Food
+from app.models import ModelVersion
 
 PASSWORD = "MatKhauTest#2026"
 
 
 @pytest.fixture
 def user(db):
-    return User.objects.create_user(email="an@example.com", password=PASSWORD, daily_calorie_target=2000)
+    return User.objects.create_user(email="an@example.com", password=PASSWORD)
 
 
 @pytest.fixture

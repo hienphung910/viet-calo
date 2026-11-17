@@ -24,26 +24,25 @@ class Checked:
 
 
 def check_image(path: Path, min_size: int) -> Checked:
-    """Ảnh hợp lệ = mở được, giải mã được, cạnh ngắn >= min_size."""
     try:
         data = path.read_bytes()
         md5 = hashlib.md5(data).hexdigest()
         with Image.open(path) as im:
-            im.verify()  # phát hiện file cụt / sai định dạng
+            im.verify()
         with Image.open(path) as im:
             im.load()
             if min(im.size) < min_size:
                 return Checked(path, False, f"quá nhỏ {im.size}")
         return Checked(path, True, md5=md5)
-    except Exception as e:  # noqa: BLE001 - mọi lỗi đọc ảnh đều coi là ảnh hỏng
+    except Exception as e:  # noqa: BLE001
         return Checked(path, False, f"lỗi đọc ảnh: {type(e).__name__}")
 
 
 def resize_and_save(src: Path, dst: Path, size: int):
-    im = load_image(src)  # xoay theo EXIF + RGB, giống hệt lúc dự đoán trên web
+    im = load_image(src)
     w, h = im.size
     scale = size / min(w, h)
-    if scale < 1:  # chỉ thu nhỏ, không phóng to
+    if scale < 1:
         im = im.resize((round(w * scale), round(h * scale)), Image.Resampling.LANCZOS)
     dst.parent.mkdir(parents=True, exist_ok=True)
     im.save(dst, "JPEG", quality=90)
@@ -52,7 +51,7 @@ def resize_and_save(src: Path, dst: Path, size: int):
 def split_counts(n: int, ratios: tuple[float, float, float]) -> tuple[int, int, int]:
     n_val = round(n * ratios[1])
     n_test = round(n * ratios[2])
-    if n >= 3:  # lớp nào cũng có ít nhất 1 ảnh val và test
+    if n >= 3:
         n_val, n_test = max(1, n_val), max(1, n_test)
     return n - n_val - n_test, n_val, n_test
 
@@ -78,7 +77,6 @@ def prepare(
     if not class_dirs:
         raise SystemExit(f"Không có thư mục lớp nào trong {raw}")
 
-    # 1. Đối chiếu với bảng dinh dưỡng: lớp không có dinh dưỡng thì web không tính được calo.
     known = read_nutrition_labels(nutrition)
     missing = [d.name for d in class_dirs if d.name not in known]
     if missing:
@@ -88,13 +86,12 @@ def prepare(
             + "\n-> Thêm dòng CSV (class_label trùng tên thư mục) hoặc đổi tên thư mục."
         )
 
-    # 2. Kiểm tra ảnh (song song cho nhanh).
     files = {d.name: sorted(p for p in d.iterdir() if p.suffix.lower() in IMAGE_EXTS) for d in class_dirs}
     with ThreadPoolExecutor(workers) as ex:
         checked = {lbl: list(ex.map(lambda p: check_image(p, min_size), paths)) for lbl, paths in files.items()}
 
     bad, seen_md5, stats = [], {}, {}
-    plan = []  # (split, label, src, dst)
+    plan = []
     for label, items in checked.items():
         good = []
         n_dup = 0
@@ -108,7 +105,6 @@ def prepare(
                 seen_md5[c.md5] = c.path.relative_to(raw).as_posix()
                 good.append(c.path)
 
-        # 3. Chia theo từng lớp. Seed riêng cho mỗi lớp -> thêm lớp mới không làm xáo trộn lớp cũ.
         rng = random.Random(f"{seed}-{label}")
         rng.shuffle(good)
         if max_per_class:
@@ -117,7 +113,6 @@ def prepare(
         parts = {"train": good[:n_train], "val": good[n_train:n_train + n_val], "test": good[n_train + n_val:]}
         for split, paths in parts.items():
             for src in paths:
-                # Đổi đuôi sang .jpg; giữ đuôi cũ trong tên để không trùng (a.png vs a.jpg).
                 dst = out / split / label / f"{src.stem}_{src.suffix.lstrip('.').lower()}.jpg"
                 plan.append((split, label, src, dst))
         stats[label] = {
@@ -127,7 +122,6 @@ def prepare(
             **{s: len(p) for s, p in parts.items()},
         }
 
-    # 4. Ghi ảnh. Xóa kết quả cũ để không lẫn ảnh của lần chạy trước.
     for split in SPLITS:
         shutil.rmtree(out / split, ignore_errors=True)
     out.mkdir(parents=True, exist_ok=True)
@@ -143,7 +137,6 @@ def prepare(
         "\n".join(f"{p.relative_to(raw).as_posix()}\t{r}" for p, r in bad), encoding="utf-8"
     )
 
-    # 5. Thống kê + cảnh báo.
     warnings = []
     usable = {lbl: s["train"] + s["val"] + s["test"] for lbl, s in stats.items()}
     for lbl, n in usable.items():
