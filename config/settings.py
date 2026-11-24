@@ -86,6 +86,10 @@ if DATABASES["default"]["ENGINE"] == "django.db.backends.mysql":
         }
     )
     DATABASES["default"]["TEST"] = {"CHARSET": "utf8mb4", "COLLATION": "utf8mb4_unicode_ci"}
+    # Giữ kết nối giữa các request. Mặc định Django mở kết nối mới cho từng request; với MySQL ở xa và có SSL
+    # thì riêng việc mở kết nối đã mất nhiều lượt đi-về, làm mọi trang đều chậm.
+    DATABASES["default"]["CONN_MAX_AGE"] = env.int("DB_CONN_MAX_AGE", default=300)
+    DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 
 AUTH_USER_MODEL = "app.User"
 LOGIN_URL = "accounts:login"
