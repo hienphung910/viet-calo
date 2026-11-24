@@ -9,7 +9,7 @@ món, web tính kcal và macro (protein, carb, fat) theo khẩu phần rồi ghi
   (bảng dinh dưỡng có 82 món).
 - Toàn bộ viết bằng Python: Django 5.2 (web), PyTorch + timm (model EfficientNet-B0), CSDL MySQL 8 (chạy thử nhanh
   được bằng SQLite).
-- 113 test tự động (pytest).
+- 115 test tự động (pytest).
 
 ## Chức năng
 
@@ -154,7 +154,7 @@ Dockerfile       image chạy web khi deploy (Railway)
 ml/              nhập dữ liệu, chuẩn bị dữ liệu, train, đánh giá model (config.yaml)
 data/            nutrition.csv
 models/          model đã train (không đưa lên git)
-tests/           113 test (pytest)
+tests/           115 test (pytest)
 ```
 
 Django gọi mô hình này là MVT: phần Django gọi là "view" chính là controller (thư mục `controllers/`), còn

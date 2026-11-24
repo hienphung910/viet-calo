@@ -6,6 +6,7 @@ import zipfile
 import pytest
 from django.core.management import call_command
 
+from app.management.commands.prepare_deploy import Command
 from app.models import Food, ModelVersion, User
 
 
@@ -66,6 +67,36 @@ def test_downloads_model_zip_when_file_is_missing(models_dir, settings, tmp_path
     call_command("prepare_deploy")
     assert (models_dir / "v-zip" / "model.pt").exists()
     assert ModelVersion.objects.count() == 1
+
+
+@pytest.mark.django_db
+def test_reads_zip_made_on_windows_with_backslash_paths(models_dir, settings, tmp_path, monkeypatch):
+    # Compress-Archive (Windows PowerShell) ghi tên file dạng "thu-muc\model.pt"
+    src = make_model_dir(tmp_path / "src", "v-win")
+    zip_path = tmp_path / "model.zip"
+    with zipfile.ZipFile(zip_path, "w") as z:
+        for f in src.iterdir():
+            info = zipfile.ZipInfo("x")
+            info.filename = f"v-win\\{f.name}"  # gán sau khi tạo để zipfile không tự đổi \ thành /
+            z.writestr(info, f.read_bytes())
+    monkeypatch.setattr("urllib.request.urlretrieve", lambda url, dest: shutil.copy(zip_path, dest))
+    settings.MODEL_URL = "https://example.com/model.zip"
+
+    call_command("prepare_deploy")
+    assert (models_dir / "v-win" / "model.pt").read_bytes() == b"fake"
+    assert ModelVersion.objects.get(is_active=True).version == "v-win"
+
+
+def test_extract_skips_paths_outside_destination(tmp_path):
+    zip_path = tmp_path / "evil.zip"
+    with zipfile.ZipFile(zip_path, "w") as z:
+        for name in ("..\\..\\ra-ngoai.txt", "../ra-ngoai-2.txt", "trong\\ok.txt"):
+            info = zipfile.ZipInfo("x")
+            info.filename = name
+            z.writestr(info, b"x")
+    Command._extract(zip_path, tmp_path / "a" / "b" / "out")
+    found = [p.relative_to(tmp_path).as_posix() for p in tmp_path.rglob("*.txt")]
+    assert found == ["a/b/out/trong/ok.txt"]
 
 
 @pytest.mark.django_db

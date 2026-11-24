@@ -68,14 +68,31 @@ class Command(BaseCommand):
             zip_path = Path(tmp) / "model.zip"
             extracted = Path(tmp) / "extracted"
             urllib.request.urlretrieve(url, zip_path)
-            with zipfile.ZipFile(zip_path) as z:
-                z.extractall(extracted)
+            self._extract(zip_path, extracted)
             # file .zip có thể chứa thẳng model.pt hoặc chứa thư mục model
             # (list() để tìm xong hết rồi mới chuyển thư mục, tránh chuyển trong lúc rglob còn đang quét)
             for model_pt in list(extracted.rglob("model.pt")):
                 src = model_pt.parent
                 name = src.name if src != extracted else "model"
                 shutil.move(str(src), str(settings.MODELS_DIR / name))
+
+    @staticmethod
+    def _extract(zip_path: Path, dest: Path):
+        dest.mkdir(parents=True, exist_ok=True)
+        root = dest.resolve()
+        with zipfile.ZipFile(zip_path) as z:
+            for info in z.infolist():
+                # zip nén bằng Compress-Archive của Windows ghi đường dẫn bằng dấu \ ; Linux coi đó là một phần
+                # tên file chứ không phải thư mục, nên phải đổi sang / trước khi giải nén
+                name = info.filename.replace("\\", "/")
+                if name.endswith("/"):
+                    continue
+                target = (root / name).resolve()
+                if root not in target.parents:  # bỏ qua đường dẫn trỏ ra ngoài thư mục giải nén
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with z.open(info) as src, open(target, "wb") as dst:
+                    shutil.copyfileobj(src, dst)
 
     def _create_admin(self):
         email = os.environ.get("DJANGO_SUPERUSER_EMAIL", "").strip().lower()
