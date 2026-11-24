@@ -6,6 +6,7 @@ import zipfile
 import pytest
 from django.core.management import call_command
 
+from app.management.commands import prepare_deploy
 from app.management.commands.prepare_deploy import Command
 from app.models import Food, ModelVersion, User
 
@@ -55,7 +56,7 @@ def test_downloads_model_zip_when_file_is_missing(models_dir, settings, tmp_path
     with zipfile.ZipFile(zip_path, "w") as z:
         for f in src.iterdir():
             z.write(f, f"v-zip/{f.name}")
-    monkeypatch.setattr("urllib.request.urlretrieve", lambda url, dest: shutil.copy(zip_path, dest))
+    monkeypatch.setattr(prepare_deploy, "download_file", lambda url, dest: shutil.copy(zip_path, dest))
     settings.MODEL_URL = "https://example.com/model.zip"
 
     call_command("prepare_deploy")
@@ -79,7 +80,7 @@ def test_reads_zip_made_on_windows_with_backslash_paths(models_dir, settings, tm
             info = zipfile.ZipInfo("x")
             info.filename = f"v-win\\{f.name}"  # gán sau khi tạo để zipfile không tự đổi \ thành /
             z.writestr(info, f.read_bytes())
-    monkeypatch.setattr("urllib.request.urlretrieve", lambda url, dest: shutil.copy(zip_path, dest))
+    monkeypatch.setattr(prepare_deploy, "download_file", lambda url, dest: shutil.copy(zip_path, dest))
     settings.MODEL_URL = "https://example.com/model.zip"
 
     call_command("prepare_deploy")
@@ -100,18 +101,61 @@ def test_extract_skips_paths_outside_destination(tmp_path):
 
 
 @pytest.mark.django_db
+def test_download_is_retried_after_network_errors(models_dir, settings, tmp_path, monkeypatch, capsys):
+    src = make_model_dir(tmp_path / "src", "v-retry")
+    zip_path = tmp_path / "model.zip"
+    with zipfile.ZipFile(zip_path, "w") as z:
+        for f in src.iterdir():
+            z.write(f, f"v-retry/{f.name}")
+    calls = []
+
+    def flaky(url, dest):
+        calls.append(url)
+        if len(calls) < 3:
+            raise BrokenPipeError(32, "Broken pipe")  # lỗi đã gặp thật trên Railway
+        shutil.copy(zip_path, dest)
+
+    monkeypatch.setattr(prepare_deploy, "download_file", flaky)
+    monkeypatch.setattr(prepare_deploy, "RETRY_DELAY", 0)
+    settings.MODEL_URL = "https://example.com/model.zip"
+
+    call_command("prepare_deploy")
+    assert len(calls) == 3 and "thử lại lần 3/4" in capsys.readouterr().out
+    assert ModelVersion.objects.get(is_active=True).version == "v-retry"
+
+
+@pytest.mark.django_db
+def test_download_gives_up_after_all_attempts(models_dir, settings, monkeypatch, capsys):
+    calls = []
+
+    def always_fails(url, dest):
+        calls.append(url)
+        raise ConnectionResetError(104, "Connection reset by peer")
+
+    monkeypatch.setattr(prepare_deploy, "download_file", always_fails)
+    monkeypatch.setattr(prepare_deploy, "RETRY_DELAY", 0)
+    settings.MODEL_URL = "https://example.com/model.zip"
+
+    call_command("prepare_deploy")  # không ném lỗi: web vẫn phải khởi động được
+    assert len(calls) == prepare_deploy.DOWNLOAD_ATTEMPTS
+    assert "Không tải được model" in capsys.readouterr().err
+
+
+@pytest.mark.django_db
 def test_broken_model_url_does_not_stop_startup(models_dir, settings, tmp_path, monkeypatch, capsys):
     def fail(url, dest):
         raise urllib.error.HTTPError(url, 404, "Not Found", None, None)
 
-    monkeypatch.setattr("urllib.request.urlretrieve", fail)
+    monkeypatch.setattr(prepare_deploy, "download_file", fail)
     settings.MODEL_URL = "https://example.com/khong-co.zip"
     call_command("prepare_deploy")  # không ném lỗi
-    assert "Không tải được model" in capsys.readouterr().err
+    captured = capsys.readouterr()
+    assert "Không tải được model" in captured.err
+    assert "thử lại" not in captured.out  # link sai (404) thì không thử lại
     assert not ModelVersion.objects.exists()
 
     # link trả về trang HTML thay vì file .zip
-    monkeypatch.setattr("urllib.request.urlretrieve", lambda url, dest: open(dest, "w").write("<html>"))
+    monkeypatch.setattr(prepare_deploy, "download_file", lambda url, dest: open(dest, "w").write("<html>"))
     call_command("prepare_deploy")
     assert not ModelVersion.objects.exists()
 

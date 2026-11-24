@@ -154,5 +154,6 @@ LOGGING = {
     "disable_existing_loggers": False,
     "handlers": {"console": {"class": "logging.StreamHandler"}},
     # tên logger phải khớp tên package ("app"), nếu không các dòng log INFO của web không bao giờ được in ra
-    "loggers": {"app": {"handlers": ["console"], "level": "INFO"}},
+    # propagate=False: không chuyển tiếp lên logger gốc nữa, nếu không mỗi dòng bị in hai lần khi chạy bằng waitress
+    "loggers": {"app": {"handlers": ["console"], "level": "INFO", "propagate": False}},
 }

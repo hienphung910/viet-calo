@@ -1,7 +1,10 @@
+import http.client
 import json
 import os
 import shutil
 import tempfile
+import time
+import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -14,6 +17,18 @@ from django.core.management.base import BaseCommand
 from app.models import Food, ModelVersion
 
 MODEL_FILES = ("model.pt", "class_list.json", "metrics.json")
+
+# Mạng lúc container vừa khởi động hay chập chờn (đứt kết nối giữa chừng), nên tải lỗi thì thử lại vài lần
+DOWNLOAD_ATTEMPTS = 4
+RETRY_DELAY = 3  # giây, gấp đôi sau mỗi lần thử
+DOWNLOAD_TIMEOUT = 60  # giây không nhận được dữ liệu thì bỏ, tránh treo cả quá trình khởi động
+DOWNLOAD_ERRORS = (OSError, http.client.HTTPException)
+
+
+def download_file(url: str, dest: Path) -> None:
+    request = urllib.request.Request(url, headers={"User-Agent": "vietcalo-deploy"})
+    with urllib.request.urlopen(request, timeout=DOWNLOAD_TIMEOUT) as response, open(dest, "wb") as out:
+        shutil.copyfileobj(response, out)
 
 
 class Command(BaseCommand):
@@ -35,7 +50,7 @@ class Command(BaseCommand):
         if settings.MODEL_URL and not self._model_dirs():
             try:
                 self._download(settings.MODEL_URL)
-            except (OSError, ValueError, zipfile.BadZipFile) as e:
+            except (*DOWNLOAD_ERRORS, ValueError, zipfile.BadZipFile) as e:
                 # link hỏng thì web vẫn phải chạy được (chỉ chưa nhận diện được ảnh)
                 self.stderr.write(self.style.ERROR(f"Không tải được model từ MODEL_URL: {e}"))
 
@@ -67,7 +82,7 @@ class Command(BaseCommand):
         with tempfile.TemporaryDirectory() as tmp:
             zip_path = Path(tmp) / "model.zip"
             extracted = Path(tmp) / "extracted"
-            urllib.request.urlretrieve(url, zip_path)
+            self._fetch(url, zip_path)
             self._extract(zip_path, extracted)
             # file .zip có thể chứa thẳng model.pt hoặc chứa thư mục model
             # (list() để tìm xong hết rồi mới chuyển thư mục, tránh chuyển trong lúc rglob còn đang quét)
@@ -75,6 +90,22 @@ class Command(BaseCommand):
                 src = model_pt.parent
                 name = src.name if src != extracted else "model"
                 shutil.move(str(src), str(settings.MODELS_DIR / name))
+
+    def _fetch(self, url: str, dest: Path):
+        delay = RETRY_DELAY
+        for attempt in range(1, DOWNLOAD_ATTEMPTS + 1):
+            try:
+                return download_file(url, dest)
+            except DOWNLOAD_ERRORS as e:
+                # link sai (404, 403...) thì thử lại cũng vô ích; chỉ thử lại lỗi mạng và lỗi phía máy chủ
+                wrong_link = isinstance(e, urllib.error.HTTPError) and e.code < 500
+                if wrong_link or attempt == DOWNLOAD_ATTEMPTS:
+                    raise
+                self.stdout.write(self.style.WARNING(
+                    f"Tải model lỗi ({e}), thử lại lần {attempt + 1}/{DOWNLOAD_ATTEMPTS} sau {delay} giây"
+                ))
+                time.sleep(delay)
+                delay *= 2
 
     @staticmethod
     def _extract(zip_path: Path, dest: Path):
