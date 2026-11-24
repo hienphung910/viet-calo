@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -13,6 +14,17 @@ environ.Env.read_env(BASE_DIR / ".env")
 SECRET_KEY = env("SECRET_KEY", default="dev-insecure-key-change-me")
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
+
+# Railway tự đặt biến RAILWAY_PUBLIC_DOMAIN (dạng ten-app.up.railway.app) và đứng trước app làm proxy HTTPS
+RAILWAY_PUBLIC_DOMAIN = env("RAILWAY_PUBLIC_DOMAIN", default="")
+if RAILWAY_PUBLIC_DOMAIN:
+    if SECRET_KEY == "dev-insecure-key-change-me":
+        raise ImproperlyConfigured("Chưa đặt biến SECRET_KEY trên Railway.")
+    ALLOWED_HOSTS += [RAILWAY_PUBLIC_DOMAIN, "healthcheck.railway.app"]
+    CSRF_TRUSTED_ORIGINS = [f"https://{RAILWAY_PUBLIC_DOMAIN}"]
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -62,7 +74,12 @@ if DATABASES["default"]["ENGINE"] == "django.db.backends.sqlite3" and DATABASES[
     DATABASES["default"]["NAME"] = str(BASE_DIR / DATABASES["default"]["NAME"])
 
 if DATABASES["default"]["ENGINE"] == "django.db.backends.mysql":
-    DATABASES["default"].setdefault("OPTIONS", {}).update(
+    db_options = DATABASES["default"].setdefault("OPTIONS", {})
+    # MySQL trên cloud (Aiven...) bắt buộc SSL và đưa URI dạng ...?ssl-mode=REQUIRED,
+    # còn driver mysqlclient nhận tham số tên ssl_mode
+    if "ssl-mode" in db_options:
+        db_options["ssl_mode"] = db_options.pop("ssl-mode")
+    db_options.update(
         {
             "charset": "utf8mb4",
             "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
@@ -97,6 +114,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 PORTION_MULTIPLIERS = {"small": 0.7, "medium": 1.0, "large": 1.3}
 NUTRITION_CSV = BASE_DIR / "data" / "nutrition.csv"
 
+MODELS_DIR = BASE_DIR / "models"
+# link tải file .zip chứa thư mục model, dùng khi deploy vì model không nằm trong git (xem lệnh prepare_deploy)
+MODEL_URL = env("MODEL_URL", default="")
 ML_DEVICE = env("ML_DEVICE", default="cpu")
 MODEL_CHECK_INTERVAL = env.float("MODEL_CHECK_INTERVAL", default=10)
 MAX_UPLOAD_MB = 10

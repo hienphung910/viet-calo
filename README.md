@@ -9,7 +9,7 @@ món, web tính kcal và macro (protein, carb, fat) theo khẩu phần rồi ghi
   (bảng dinh dưỡng có 82 món).
 - Toàn bộ viết bằng Python: Django 5.2 (web), PyTorch + timm (model EfficientNet-B0), CSDL MySQL 8 (chạy thử nhanh
   được bằng SQLite).
-- 108 test tự động (pytest).
+- 113 test tự động (pytest).
 
 ## Chức năng
 
@@ -75,6 +75,35 @@ Chạy test (dùng SQLite trong RAM, không cần bật MySQL):
 $env:DATABASE_URL="sqlite:///:memory:"; python -m pytest
 ```
 
+## Deploy lên Railway (web) và Aiven (MySQL)
+
+Railway build web từ `Dockerfile` ở gốc repo, CSDL là một service MySQL 8 trên Aiven. Mỗi lần khởi động, container tự
+chạy `migrate` rồi `prepare_deploy` (nạp bảng dinh dưỡng nếu bảng còn trống, tải và đăng ký model, tạo tài khoản
+admin), sau đó mới chạy web bằng waitress.
+
+1. **Aiven**: tạo service MySQL, vào trang service chép *Service URI* (dạng
+   `mysql://avnadmin:...@ten-service.aivencloud.com:12345/defaultdb?ssl-mode=REQUIRED`).
+2. **Model**: nén thư mục model (có `model.pt`, `class_list.json`, `metrics.json`) thành file `.zip` rồi đưa lên nơi có
+   link tải trực tiếp, ví dụ mục Releases của repo GitHub.
+3. **Railway**: New Project → Deploy from GitHub repo → chọn repo này, rồi vào tab Variables đặt:
+
+   | Biến | Giá trị |
+   |---|---|
+   | `SECRET_KEY` | chuỗi ngẫu nhiên, tạo bằng `python -c "import secrets; print(secrets.token_urlsafe(50))"` |
+   | `DATABASE_URL` | Service URI của Aiven, giữ nguyên phần `?ssl-mode=REQUIRED` |
+   | `MODEL_URL` | link tải file `.zip` ở bước 2 |
+   | `DJANGO_SUPERUSER_EMAIL`, `DJANGO_SUPERUSER_PASSWORD` | tài khoản đăng nhập trang `/admin` |
+
+4. Vào Settings → Networking → Generate Domain để có địa chỉ `https://<tên>.up.railway.app`. Nên đặt thêm Healthcheck
+   Path là `/accounts/login/` để Railway chờ web sẵn sàng rồi mới chuyển sang bản mới.
+5. Ổ đĩa của container bị xoá mỗi lần deploy. Muốn giữ ảnh người dùng tải lên thì gắn một Volume vào `/app/media`.
+
+Không cần đặt `ALLOWED_HOSTS`: web tự nhận domain qua biến `RAILWAY_PUBLIC_DOMAIN` mà Railway cấp.
+
+**Truy vấn bằng MySQL Workbench**: tạo connection kiểu Standard (TCP/IP) với Hostname, Port, Username (`avnadmin`),
+Password lấy từ trang service của Aiven, Default Schema là `defaultdb`; trong tab SSL đặt Use SSL = `Require`. Đây là
+CSDL web đang dùng nên `UPDATE`/`DELETE` có hiệu lực ngay trên web.
+
 ## Train model
 
 ```powershell
@@ -118,13 +147,14 @@ app/
   services/      nghiệp vụ: nhận diện ảnh, xử lý ảnh, nhật ký, tổng hợp theo ngày/tuần, ảnh phản hồi, đọc CSV
   forms/         kiểm tra dữ liệu người dùng gửi lên
   admin/         trang quản trị
-  management/    lệnh manage.py: seed_foods, register_model, cleanup_uploads, export_feedback
+  management/    lệnh manage.py: seed_foods, register_model, cleanup_uploads, export_feedback, prepare_deploy
   urls.py        ánh xạ URL tới controller
 config/          settings, urls, wsgi (nạp model khi khởi động)
+Dockerfile       image chạy web khi deploy (Railway)
 ml/              nhập dữ liệu, chuẩn bị dữ liệu, train, đánh giá model (config.yaml)
 data/            nutrition.csv
 models/          model đã train (không đưa lên git)
-tests/           108 test (pytest)
+tests/           113 test (pytest)
 ```
 
 Django gọi mô hình này là MVT: phần Django gọi là "view" chính là controller (thư mục `controllers/`), còn
