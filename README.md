@@ -9,7 +9,7 @@ món, web tính kcal và macro (protein, carb, fat) theo khẩu phần rồi ghi
   (bảng dinh dưỡng có 82 món).
 - Toàn bộ viết bằng Python: Django 5.2 (web), PyTorch + timm (model EfficientNet-B0), CSDL MySQL 8 (chạy thử nhanh
   được bằng SQLite).
-- 115 test tự động (pytest).
+- 122 test tự động (pytest).
 
 ## Chức năng
 
@@ -66,7 +66,7 @@ Chạy kiểu demo (`DEBUG=False`, web server waitress, không hiện trang lỗ
 
 ```powershell
 $env:DEBUG="False"; python manage.py collectstatic --noinput
-waitress-serve --listen=127.0.0.1:8000 config.wsgi:application
+waitress-serve --listen=127.0.0.1:8000 --max-request-body-size=11534336 config.wsgi:application
 ```
 
 Chạy test (dùng SQLite trong RAM, không cần bật MySQL):
@@ -154,7 +154,7 @@ Dockerfile       image chạy web khi deploy (Railway)
 ml/              nhập dữ liệu, chuẩn bị dữ liệu, train, đánh giá model (config.yaml)
 data/            nutrition.csv
 models/          model đã train (không đưa lên git)
-tests/           115 test (pytest)
+tests/           122 test (pytest)
 ```
 
 Django gọi mô hình này là MVT: phần Django gọi là "view" chính là controller (thư mục `controllers/`), còn

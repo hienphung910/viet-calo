@@ -18,13 +18,16 @@ ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 # Railway tự đặt biến RAILWAY_PUBLIC_DOMAIN (dạng ten-app.up.railway.app) và đứng trước app làm proxy HTTPS
 RAILWAY_PUBLIC_DOMAIN = env("RAILWAY_PUBLIC_DOMAIN", default="")
 if RAILWAY_PUBLIC_DOMAIN:
-    if SECRET_KEY == "dev-insecure-key-change-me":
-        raise ImproperlyConfigured("Chưa đặt biến SECRET_KEY trên Railway.")
+    # khoá mặc định và khoá mẫu trong .env.example đều nằm công khai trên git, ai cũng giả mạo được phiên đăng nhập
+    if SECRET_KEY in ("dev-insecure-key-change-me", "thay-bang-chuoi-ngau-nhien-dai"):
+        raise ImproperlyConfigured("Chưa đặt biến SECRET_KEY (chuỗi ngẫu nhiên riêng) trên Railway.")
     ALLOWED_HOSTS += [RAILWAY_PUBLIC_DOMAIN, "healthcheck.railway.app"]
     CSRF_TRUSTED_ORIGINS = [f"https://{RAILWAY_PUBLIC_DOMAIN}"]
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    # trình duyệt nhớ trong 30 ngày là trang này chỉ dùng HTTPS, không thử HTTP thường nữa
+    SECURE_HSTS_SECONDS = 30 * 24 * 3600
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -96,7 +99,14 @@ LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "diary:home"
 LOGOUT_REDIRECT_URL = "accounts:login"
 
-AUTH_PASSWORD_VALIDATORS = []
+# áp dụng khi đăng ký và khi đổi mật khẩu trong trang quản trị: tối thiểu 8 ký tự, không nằm trong danh sách
+# mật khẩu phổ biến, không toàn chữ số, không quá giống email
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
 
 LANGUAGE_CODE = "vi"
 TIME_ZONE = "Asia/Ho_Chi_Minh"
@@ -124,6 +134,9 @@ MODEL_URL = env("MODEL_URL", default="")
 ML_DEVICE = env("ML_DEVICE", default="cpu")
 MODEL_CHECK_INTERVAL = env.float("MODEL_CHECK_INTERVAL", default=10)
 MAX_UPLOAD_MB = 10
+# Ảnh nén rất nhỏ vẫn có thể bung ra hàng trăm MB trong RAM khi giải mã (vd. PNG một màu 170 megapixel),
+# đủ làm sập server. 30 megapixel vẫn nhận được ảnh chụp 24 MP của điện thoại.
+MAX_UPLOAD_PIXELS = 30_000_000
 UPLOAD_MAX_SIDE = 1280
 ALLOWED_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP"}
 FEEDBACK_EXPORT_DIR = BASE_DIR / "data" / "raw"
@@ -132,5 +145,6 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "handlers": {"console": {"class": "logging.StreamHandler"}},
-    "loggers": {"apps": {"handlers": ["console"], "level": "INFO"}},
+    # tên logger phải khớp tên package ("app"), nếu không các dòng log INFO của web không bao giờ được in ra
+    "loggers": {"app": {"handlers": ["console"], "level": "INFO"}},
 }

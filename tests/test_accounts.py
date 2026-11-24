@@ -1,5 +1,6 @@
 import pytest
 from django.db import IntegrityError, transaction
+from django.test import Client
 from django.urls import reverse
 
 from app.models import User
@@ -42,6 +43,26 @@ class TestAuthViews:
         resp = client.post(reverse("accounts:login"), {"username": user.email, "password": "sai"})
         assert resp.status_code == 200
         assert "_auth_user_id" not in client.session
+
+    @pytest.mark.parametrize("weak", ["abc12", "12345678", "password", "yeu@example.com"])
+    def test_register_rejects_weak_password(self, client, weak):
+        resp = client.post(reverse("accounts:register"),
+                           {"email": "yeu@example.com", "password1": weak, "password2": weak})
+        assert resp.status_code == 200 and resp.context["form"].errors
+        assert not User.objects.exists()
+
+    def test_register_and_login_ignore_email_case(self, client):
+        data = {"email": "Hoa@Example.COM", "password1": PASSWORD, "password2": PASSWORD}
+        assert client.post(reverse("accounts:register"), data).status_code == 302
+        assert User.objects.get().email == "hoa@example.com"
+
+        other = Client()
+        resp = other.post(reverse("accounts:login"), {"username": "HOA@example.com", "password": PASSWORD})
+        assert resp.status_code == 302
+        # không tạo được tài khoản thứ hai chỉ khác chữ hoa/thường
+        resp = Client().post(reverse("accounts:register"), {**data, "email": "hoa@EXAMPLE.com"})
+        assert resp.status_code == 200 and "email" in resp.context["form"].errors
+        assert User.objects.count() == 1
 
     def test_home_requires_login(self, client):
         resp = client.get(reverse("diary:home"))

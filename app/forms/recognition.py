@@ -12,9 +12,14 @@ class UploadForm(forms.Form):
         f = self.cleaned_data["image"]
         if f.size > settings.MAX_UPLOAD_MB * 1024 * 1024:
             raise forms.ValidationError(f"Ảnh quá lớn (tối đa {settings.MAX_UPLOAD_MB} MB).")
-        fmt = getattr(getattr(f, "image", None), "format", None)
-        if fmt not in settings.ALLOWED_IMAGE_FORMATS:
+        img = getattr(f, "image", None)
+        if getattr(img, "format", None) not in settings.ALLOWED_IMAGE_FORMATS:
             raise forms.ValidationError("Chỉ nhận ảnh JPG, PNG hoặc WEBP.")
+        # kiểm tra trước khi giải mã: file vài chục KB vẫn có thể khai kích thước cực lớn để làm cạn RAM server
+        if img.width * img.height > settings.MAX_UPLOAD_PIXELS:
+            raise forms.ValidationError(
+                f"Ảnh có độ phân giải quá lớn (tối đa {settings.MAX_UPLOAD_PIXELS // 1_000_000} megapixel)."
+            )
         return f
 
 

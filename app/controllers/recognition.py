@@ -1,3 +1,4 @@
+import logging
 import secrets
 
 from django.conf import settings
@@ -26,6 +27,16 @@ UPLOAD_TIPS = [
 PENDING_KEY = "pending_scans"
 MAX_PENDING = 5
 
+logger = logging.getLogger(__name__)
+
+
+def _model_error_text(request, error: Exception) -> str:
+    # lỗi nạp model có kèm đường dẫn file trên server và chi tiết lỗi: chỉ quản trị viên được thấy
+    if isinstance(error, ModelLoadError) and not request.user.is_staff:
+        logger.error("Không nạp được model: %s", error)
+        return "Model nhận diện đang gặp lỗi, hãy báo quản trị viên."
+    return str(error)
+
 
 @login_required
 def scan_upload(request):
@@ -35,7 +46,7 @@ def scan_upload(request):
         try:
             result = get_service().predict(image)
         except (NoActiveModel, ModelLoadError) as e:
-            messages.error(request, f"Chưa nhận diện được: {e}")
+            messages.error(request, f"Chưa nhận diện được: {_model_error_text(request, e)}")
             return render(request, "recognition/upload.html", {"form": form, "tips": UPLOAD_TIPS})
 
         token = secrets.token_urlsafe(8)
@@ -106,7 +117,7 @@ def api_predict(request):
     try:
         result = get_service().predict(image)
     except (NoActiveModel, ModelLoadError) as e:
-        return JsonResponse({"error": str(e)}, status=503)
+        return JsonResponse({"error": _model_error_text(request, e)}, status=503)
     food = result.food
     return JsonResponse({
         "model_version": result.model_version,

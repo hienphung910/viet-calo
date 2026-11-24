@@ -240,10 +240,18 @@ function stopLive() {
 }
 function renderLive(p) {
   const kcal = p.kcal_per_100g ? `${Math.round(p.kcal_per_100g)} kcal / 100 g` : "Chưa có dữ liệu dinh dưỡng";
-  $("live-list").innerHTML = `<div class="flex flex-col gap-1 rounded-xl bg-brand-50 px-4 py-3 ring-2 ring-brand-600 ring-inset">
-    <span class="type-h3">${p.name_vi || p.label}</span>
-    <span class="type-small text-ink-600">${kcal}</span>
-  </div>`;
+  // Dùng textContent chứ không ghép chuỗi vào innerHTML: tên món lấy từ CSDL, nếu có chứa thẻ HTML
+  // thì trình duyệt sẽ chạy nó như mã lệnh trên trang của người dùng.
+  const box = document.createElement("div");
+  box.className = "flex flex-col gap-1 rounded-xl bg-brand-50 px-4 py-3 ring-2 ring-brand-600 ring-inset";
+  const name = document.createElement("span");
+  name.className = "type-h3";
+  name.textContent = p.name_vi || p.label;
+  const sub = document.createElement("span");
+  sub.className = "type-small text-ink-600";
+  sub.textContent = kcal;
+  box.append(name, sub);
+  $("live-list").replaceChildren(box);
 }
 async function liveTick() {
   if (liveBusy || !stream || !video.videoWidth || document.hidden) return;

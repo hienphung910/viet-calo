@@ -151,6 +151,27 @@ class TestScanFlow:
         assert resp.status_code == 200
         assert "Chưa nhận diện được" in resp.content.decode()
 
+    def test_rejects_image_with_too_many_pixels(self, logged_client, make_mv, service, media, settings):
+        make_mv("confident.pt")
+        settings.MAX_UPLOAD_PIXELS = 1000  # ảnh thử 64x48 = 3072 điểm ảnh
+        resp = self.scan(logged_client)
+        assert resp.status_code == 200
+        assert "megapixel" in str(resp.context["form"].errors)
+        assert not (media / "uploads").exists()
+
+    def test_model_load_error_hides_server_path_from_users(self, client, user, foods, service):
+        ModelVersion.objects.create(version="hong", file_path="duong/dan/bi-mat.pt", trained_at=timezone.now(),
+                                    is_active=True)
+        client.force_login(user)
+        page = self.scan(client).content.decode()
+        api = client.post(reverse("recognition:api_predict"), {"image": upload()})
+        assert "Chưa nhận diện được" in page and api.status_code == 503
+        assert "bi-mat.pt" not in page and "bi-mat.pt" not in api.json()["error"]
+
+        # quản trị viên vẫn thấy chi tiết để biết file nào hỏng
+        client.force_login(get_user_model().objects.create_superuser(email="admin@example.com", password="x" * 12))
+        assert "bi-mat.pt" in client.post(reverse("recognition:api_predict"), {"image": upload()}).json()["error"]
+
     def test_upload_saves_image_without_exif(self, logged_client, make_mv, service, media):
         make_mv("confident.pt")
         exif = Image.Exif()

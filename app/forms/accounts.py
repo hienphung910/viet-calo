@@ -18,6 +18,14 @@ class RegisterForm(StyledFormMixin, UserCreationForm):
         model = User
         fields = ("email",)
 
+    # Email luôn lưu chữ thường (giống UserManager). Nếu không, "An@x.com" và "an@x.com" thành hai tài khoản
+    # trên CSDL phân biệt hoa thường, và người đăng ký bằng chữ hoa không đăng nhập lại được bằng chữ thường.
+    def clean_email(self):
+        return self.cleaned_data["email"].lower()
+
 
 class LoginForm(StyledFormMixin, AuthenticationForm):
     username = forms.EmailField(label="Email")
+
+    def clean_username(self):
+        return self.cleaned_data["username"].lower()
