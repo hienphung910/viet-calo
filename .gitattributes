@@ -1,0 +1,2 @@
+# Script chạy trong container Linux phải dùng xuống dòng kiểu LF, kể cả khi checkout trên Windows
+*.sh text eol=lf

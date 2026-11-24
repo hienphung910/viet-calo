@@ -46,6 +46,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "app.middleware.WeakPasswordMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -95,6 +96,11 @@ if DATABASES["default"]["ENGINE"] == "django.db.backends.mysql":
     DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 
 AUTH_USER_MODEL = "app.User"
+AUTHENTICATION_BACKENDS = ["app.auth_backend.GuardedModelBackend"]
+
+# Số lần đăng nhập sai tối đa trong LOGIN_LOCK_SECONDS trước khi bị khoá tạm (xem app/services/login_guard.py)
+LOGIN_LIMITS = {"ip_email": 5, "ip": 30, "email": 20}
+LOGIN_LOCK_SECONDS = 15 * 60
 LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "diary:home"
 LOGOUT_REDIRECT_URL = "accounts:login"
@@ -133,6 +139,8 @@ MODELS_DIR = BASE_DIR / "models"
 MODEL_URL = env("MODEL_URL", default="")
 ML_DEVICE = env("ML_DEVICE", default="cpu")
 MODEL_CHECK_INTERVAL = env.float("MODEL_CHECK_INTERVAL", default=10)
+# Cứ mỗi N giờ web tự xoá ảnh trong media/ không còn được CSDL tham chiếu (lệnh cleanup_uploads). 0 = tắt.
+UPLOAD_CLEANUP_HOURS = env.float("UPLOAD_CLEANUP_HOURS", default=0)
 MAX_UPLOAD_MB = 10
 # Ảnh nén rất nhỏ vẫn có thể bung ra hàng trăm MB trong RAM khi giải mã (vd. PNG một màu 170 megapixel),
 # đủ làm sập server. 30 megapixel vẫn nhận được ảnh chụp 24 MP của điện thoại.

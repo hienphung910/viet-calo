@@ -2,10 +2,12 @@
 FROM python:3.11-slim
 
 # OMP_NUM_THREADS: PyTorch mặc định tạo số luồng bằng số nhân của máy chủ, nhiều hơn phần CPU container được cấp
+# UPLOAD_CLEANUP_HOURS: cứ 6 giờ web tự xoá ảnh tải lên không còn được CSDL tham chiếu
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    OMP_NUM_THREADS=2
+    OMP_NUM_THREADS=2 \
+    UPLOAD_CLEANUP_HOURS=6
 
 # mysqlclient không có wheel cho Linux nên phải build từ mã nguồn
 RUN apt-get update \
@@ -20,12 +22,14 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY . .
-RUN python manage.py collectstatic --noinput
+# sed: bỏ ký tự xuống dòng kiểu Windows nếu có, vì sh trên Linux không chạy được script có \r
+RUN python manage.py collectstatic --noinput \
+    && sed -i 's/\r$//' deploy/start.sh
 
-# Railway đặt biến PORT. Mỗi lần khởi động: cập nhật bảng CSDL, nạp dữ liệu ban đầu + model, rồi chạy web.
-# --trusted-proxy: Railway đứng trước làm proxy HTTPS, cần tin header X-Forwarded-Proto để Django biết đang là HTTPS.
-# --max-request-body-size: 11 MB (ảnh tối đa 10 MB + phần form). Mặc định waitress nhận tới 1 GB mỗi request và
-#   ghi tạm ra đĩa trước khi Django kịp kiểm tra, kể cả với người chưa đăng nhập.
-CMD python manage.py migrate --noinput \
-    && python manage.py prepare_deploy \
-    && exec waitress-serve --listen=0.0.0.0:${PORT:-8000} --trusted-proxy='*' --trusted-proxy-headers=x-forwarded-proto --max-request-body-size=11534336 config.wsgi:application
+# User thường để chạy web. Mã nguồn trong /app vẫn thuộc root nên web không tự sửa được code của chính nó;
+# deploy/start.sh chỉ trao cho user này quyền ghi vào media/ và models/.
+RUN useradd --create-home --uid 1000 app
+
+# Railway đặt biến PORT. Mỗi lần khởi động: cập nhật bảng CSDL, nạp dữ liệu ban đầu + model, rồi chạy web
+# bằng user "app" (chi tiết trong deploy/start.sh).
+CMD ["sh", "/app/deploy/start.sh"]

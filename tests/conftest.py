@@ -8,6 +8,14 @@ from app.models import ModelVersion
 PASSWORD = "MatKhauTest#2026"
 
 
+@pytest.fixture(autouse=True)
+def clear_cache():
+    # bộ đếm đăng nhập sai nằm trong cache, phải xoá để test này không ảnh hưởng test khác
+    from django.core.cache import cache
+
+    cache.clear()
+
+
 @pytest.fixture
 def user(db):
     return User.objects.create_user(email="an@example.com", password=PASSWORD)

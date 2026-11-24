@@ -9,13 +9,13 @@ món, web tính kcal và macro (protein, carb, fat) theo khẩu phần rồi ghi
   (bảng dinh dưỡng có 82 món).
 - Toàn bộ viết bằng Python: Django 5.2 (web), PyTorch + timm (model EfficientNet-B0), CSDL MySQL 8 (chạy thử nhanh
   được bằng SQLite).
-- 122 test tự động (pytest).
+- 136 test tự động (pytest).
 
 ## Chức năng
 
 | Người dùng | Quản trị viên |
 |---|---|
-| Đăng ký, đăng nhập bằng email | Quản lý các phiên bản model, đổi model không cần restart |
+| Đăng ký, đăng nhập bằng email, đổi mật khẩu | Quản lý các phiên bản model, đổi model không cần restart |
 | Chụp ảnh bằng camera hoặc tải ảnh lên, AI chọn món | Sửa bảng dinh dưỡng, duyệt ảnh phản hồi |
 | Chọn khẩu phần, lưu vào nhật ký | Xuất ảnh phản hồi để train lại |
 | Xem nhật ký theo ngày, biểu đồ theo tuần | |
@@ -79,7 +79,8 @@ $env:DATABASE_URL="sqlite:///:memory:"; python -m pytest
 
 Railway build web từ `Dockerfile` ở gốc repo, CSDL là một service MySQL 8 trên Aiven. Mỗi lần khởi động, container tự
 chạy `migrate` rồi `prepare_deploy` (nạp bảng dinh dưỡng nếu bảng còn trống, tải và đăng ký model, tạo tài khoản
-admin), sau đó mới chạy web bằng waitress.
+admin), sau đó mới chạy web bằng waitress dưới quyền user thường `app` (xem `deploy/start.sh`). Cứ 6 giờ web tự xoá
+ảnh tải lên không còn được CSDL tham chiếu (biến `UPLOAD_CLEANUP_HOURS`).
 
 1. **Aiven**: tạo service MySQL, vào trang service chép *Service URI* (dạng
    `mysql://avnadmin:...@ten-service.aivencloud.com:12345/defaultdb?ssl-mode=REQUIRED`).
@@ -103,6 +104,17 @@ Không cần đặt `ALLOWED_HOSTS`: web tự nhận domain qua biến `RAILWAY_
 **Truy vấn bằng MySQL Workbench**: tạo connection kiểu Standard (TCP/IP) với Hostname, Port, Username (`avnadmin`),
 Password lấy từ trang service của Aiven, Default Schema là `defaultdb`; trong tab SSL đặt Use SSL = `Require`. Đây là
 CSDL web đang dùng nên `UPDATE`/`DELETE` có hiệu lực ngay trên web.
+
+## Bảo mật
+
+- **Mật khẩu**: tối thiểu 8 ký tự, không nằm trong danh sách mật khẩu phổ biến, không toàn chữ số. Tài khoản cũ có
+  mật khẩu yếu bị chuyển tới trang đổi mật khẩu ngay sau khi đăng nhập.
+- **Chống dò mật khẩu**: sai 5 lần liên tiếp từ cùng một IP cho cùng một email thì khoá 15 phút; ngoài ra còn giới hạn
+  30 lần sai cho mỗi IP và 20 lần sai cho mỗi email (cấu hình ở `LOGIN_LIMITS`). Áp dụng cho cả trang `/admin`.
+- **Tải ảnh**: mỗi request tối đa 11 MB, ảnh tối đa 10 MB và 30 megapixel; ảnh luôn được mã hoá lại thành JPEG trước
+  khi lưu, và chỉ chủ ảnh hoặc quản trị viên mới xem được.
+- **Script bên ngoài** (Tailwind, Chart.js) khoá đúng phiên bản và có mã băm SRI.
+- **Khi deploy**: chỉ dùng HTTPS (cookie `Secure`, HSTS), kết nối MySQL bắt buộc SSL, container chạy bằng user thường.
 
 ## Train model
 
@@ -154,7 +166,7 @@ Dockerfile       image chạy web khi deploy (Railway)
 ml/              nhập dữ liệu, chuẩn bị dữ liệu, train, đánh giá model (config.yaml)
 data/            nutrition.csv
 models/          model đã train (không đưa lên git)
-tests/           122 test (pytest)
+tests/           136 test (pytest)
 ```
 
 Django gọi mô hình này là MVT: phần Django gọi là "view" chính là controller (thư mục `controllers/`), còn

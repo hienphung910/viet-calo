@@ -26,6 +26,31 @@ def save(name, age_hours=48):
     return path
 
 
+def test_background_cleanup_runs_at_start_and_survives_errors(monkeypatch):
+    import threading
+
+    from app.services import maintenance
+
+    assert maintenance.start_upload_cleanup(0) is None  # 0 giờ = tắt
+
+    orphan = save("uploads/2026/09/old.jpg")
+    stop = threading.Event()
+    stop.set()  # chạy đúng một vòng rồi dừng
+    thread = maintenance.start_upload_cleanup(6, stop)
+    thread.join(timeout=10)
+    assert thread.daemon and not thread.is_alive()
+    assert not default_storage.exists(orphan)
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("hỏng")
+
+    # gọi thẳng trong luồng của test thì không được đóng kết nối thật: test đang chạy trên chính kết nối đó
+    monkeypatch.setattr(maintenance, "close_old_connections", lambda: None)
+    monkeypatch.setattr(maintenance.connections, "close_all", lambda: None)
+    monkeypatch.setattr(maintenance, "call_command", boom)
+    maintenance.cleanup_uploads_once()  # lỗi chỉ được ghi log, không làm chết luồng nền
+
+
 def test_cleanup_removes_only_old_orphans(user, pho, media):
     used = save("uploads/2026/10/used.jpg")
     create_meal_log(user=user, food=pho, grams=600, meal_type="lunch", image_path=used)

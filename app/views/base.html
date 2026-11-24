@@ -8,7 +8,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  {# Khoá đúng phiên bản và kèm mã băm (SRI): nếu file trên CDN bị đổi, trình duyệt sẽ không chạy nó. #}
+  {# Khi nâng phiên bản phải tính lại mã: curl -s <url> | openssl dgst -sha384 -binary | openssl base64 -A #}
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.5/dist/index.global.js" integrity="sha384-t+qLIxS5zM/KF99/doWY+dxTsavdvgayaZt8A9ntLsUjEkiXzYl5M3Ij8zVFPL9j" crossorigin="anonymous"></script>
   <style type="text/tailwindcss">
     @theme {
       --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
@@ -78,6 +80,7 @@
             <div class="absolute right-0 mt-2 w-56 rounded-2xl bg-white p-2 shadow-float">
               <p class="truncate px-3 py-2 type-small text-ink-400">{{ user.email }}</p>
               {% if user.is_staff %}<a href="{% url 'admin:index' %}" class="block rounded-xl px-3 py-2 type-strong hover:bg-page">Quản trị</a>{% endif %}
+              <a href="{% url 'accounts:password_change' %}" class="block rounded-xl px-3 py-2 type-strong hover:bg-page">Đổi mật khẩu</a>
               <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
                 <button class="w-full rounded-xl px-3 py-2 text-left type-strong text-danger hover:bg-page">Đăng xuất</button>
               </form>

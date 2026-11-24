@@ -7,6 +7,7 @@ accounts_urls = ([
     path("register/", accounts.register, name="register"),
     path("login/", accounts.EmailLoginView.as_view(), name="login"),
     path("logout/", LogoutView.as_view(), name="logout"),
+    path("password/", accounts.PasswordChange.as_view(), name="password_change"),
 ], "accounts")
 
 recognition_urls = ([
