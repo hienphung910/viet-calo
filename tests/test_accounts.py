@@ -51,6 +51,13 @@ class TestAuthViews:
         assert resp.status_code == 200 and resp.context["form"].errors
         assert not User.objects.exists()
 
+    def test_register_page_hides_password_rules_but_still_reports_errors(self, client):
+        form = client.get(reverse("accounts:register")).context["form"]
+        assert form.fields["password1"].help_text == ""
+        resp = client.post(reverse("accounts:register"),
+                           {"email": "yeu@example.com", "password1": "abc12", "password2": "abc12"})
+        assert "8" in str(resp.context["form"].errors)  # vẫn báo "ít nhất 8 ký tự"
+
     def test_register_and_login_ignore_email_case(self, client):
         data = {"email": "Hoa@Example.COM", "password1": PASSWORD, "password2": PASSWORD}
         assert client.post(reverse("accounts:register"), data).status_code == 302

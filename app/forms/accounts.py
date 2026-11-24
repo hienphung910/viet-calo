@@ -20,6 +20,12 @@ class RegisterForm(StyledFormMixin, UserCreationForm):
         model = User
         fields = ("email",)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Không hiện sẵn danh sách quy tắc mật khẩu dưới ô nhập cho gọn giao diện.
+        # Quy tắc vẫn được kiểm tra: mật khẩu không đạt thì form báo lỗi cụ thể khi bấm Đăng ký.
+        self.fields["password1"].help_text = ""
+
     # Email luôn lưu chữ thường (giống UserManager). Nếu không, "An@x.com" và "an@x.com" thành hai tài khoản
     # trên CSDL phân biệt hoa thường, và người đăng ký bằng chữ hoa không đăng nhập lại được bằng chữ thường.
     def clean_email(self):
